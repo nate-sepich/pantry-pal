@@ -1,0 +1,5 @@
+title: Pantry Pal
+description: Intelligent Meal Planning Application
+theme: jekyll-theme-cayman
+exclude:
+  - README.md
