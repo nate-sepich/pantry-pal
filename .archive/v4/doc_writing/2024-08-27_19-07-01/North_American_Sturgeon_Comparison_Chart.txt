@@ -1,0 +1,7 @@
+Sturgeon Species	Size (Length)	Size (Weight)	Distribution	Habitat
+
+White Sturgeon	Up to 20 ft	Up to 1,800 lbs	West coast of North America	Rivers and estuaries
+
+Shortnose Sturgeon	Up to 4 ft	Up to 50 lbs	East coast of North America	Rivers and estuaries
+
+Green Sturgeon	Up to 7 ft	Up to 350 lbs	West coast of North America	Rivers and estuaries

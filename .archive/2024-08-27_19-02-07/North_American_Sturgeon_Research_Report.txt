@@ -1,0 +1,39 @@
+## Introduction
+North American sturgeon are a group of fish species that belong to the family Acipenseridae. These ancient fish are known for their long lifespans, large size, and distinctive appearance with bony plates covering their bodies. They are anadromous, migrating between saltwater and freshwater to spawn. However, due to overfishing, habitat loss, and pollution, many sturgeon species are now considered endangered or vulnerable.
+
+## Species Overview
+
+### Green Sturgeon (Acipenser medirostris)
+The Green Sturgeon is found on the west coast of North America, with critical habitats in freshwater, marine waters, coastal bays, and estuaries. Efforts by NOAA Fisheries and partners focus on studying their distribution, migrations, and spawning habitat utilization. The Southern Distinct Population Segment (sDPS) of the Green Sturgeon is of particular conservation concern.
+
+### Atlantic Sturgeon (Acipenser oxyrinchus)
+The Atlantic Sturgeon is found along the east coast of North America and is protected under the Endangered Species Act. NOAA Fisheries is involved in efforts to protect critical habitats, minimize vessel strikes, and educate the public. Recovery efforts are ongoing, including identifying and protecting spawning habitats.
+
+## Population Status and Conservation Efforts
+Sturgeon populations have been depleted due to overexploitation and habitat loss. Conservation measures include restrictions on sport fishing in states like California, Oregon, and Washington and efforts to reduce pesticide runoff and improve fish passage at barriers like dams.
+
+Current conservation efforts include:
+- Designating and protecting critical habitats.
+- Conducting research on sturgeon biology and ecology.
+- Implementing recovery plans and action plans to reduce bycatch.
+- Educating the public and students about sturgeon conservation.
+
+Despite the challenges, there is optimism for sturgeon recovery, provided there is continued support and effective management of threats, including climate change.
+
+## Chart: North American Sturgeon Conservation Status
+
+| Species                | Conservation Status                            | Critical Habitats                | Main Threats                      |
+|------------------------|-----------------------------------------------|----------------------------------|-----------------------------------|
+| Green Sturgeon         | Endangered (sDPS)                             | Freshwater, marine, coastal bays | Overfishing, habitat loss        |
+| Atlantic Sturgeon      | Endangered (various DPS)                      | East coast rivers and estuaries  | Bycatch, vessel strikes, habitat loss |
+
+## Conclusion
+North American sturgeon are facing significant challenges that threaten their survival. Conservation efforts are critical to protect these remarkable fish, which serve as indicators of the health of aquatic ecosystems. Ongoing research and public education are key components in the fight to ensure the future of sturgeon species in North America.
+
+## References
+- NOAA Fisheries on Green Sturgeon: [Green Sturgeon](https://www.fisheries.noaa.gov/species/green-sturgeon)
+- Center for Biological Diversity on North American Green Sturgeon: [North American Green Sturgeon](https://www.biologicaldiversity.org/species/fish/North_American_green_sturgeon/)
+- NOAA Fisheries on Atlantic Sturgeon: [Atlantic Sturgeon](https://www.fisheries.noaa.gov/species/atlantic-sturgeon)
+- Supporting Endangered Atlantic Sturgeon in the Chesapeake Bay: [Endangered Atlantic Sturgeon](https://www.fisheries.noaa.gov/feature-story/supporting-endangered-atlantic-sturgeon-chesapeake-bay)
+
+Please note that the information presented here is based on the latest available data as of April 2023.

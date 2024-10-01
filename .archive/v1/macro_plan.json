@@ -1,0 +1,86 @@
+{
+    "calories": {
+      "maintenance": 3750,
+      "surplus_lower": 4000,        
+      "surplus_upper": 4250
+    },
+    "protein": 170.0,
+    "carbohydrates": {
+      "grams": 510.0,
+      "ratio": "3:1 (carbs:protein)"
+    },
+    "fat": {
+      "lower": 76.5,
+      "upper": 127.5
+    },
+    "weekly_summary": {
+      "calories": 28000.0,
+      "protein": 1190.0,
+      "carbohydrates": 3570.0,      
+      "fat_lower": 535.5,
+      "fat_upper": 892.5
+    },
+    "food_sources": {
+      "protein": [
+        "Tofu (100g = ~20g protein)",
+        "Tempeh (100g = ~19g protein)",
+        "Lentils (1 cup cooked = ~18g protein)",
+        "Chickpeas (1 cup cooked = ~15g protein)",
+        "Black beans (1 cup cooked = ~15g protein)",
+        "Edamame (1 cup shelled = ~17g protein)",
+        "Seitan (100g = ~25g protein)",
+        "Vegan protein powder (1 scoop = ~25-30g protein)"
+      ],
+      "carbohydrates": [
+        "Brown rice (1 cup cooked = ~45g carbs)",
+        "Quinoa (1 cup cooked = ~39g carbs)",
+        "Oats (1 cup cooked = ~40g carbs)",
+        "Sweet potatoes (1 medium = ~26g carbs)",
+        "Bananas (1 medium = ~27g carbs)",
+        "Berries (1 cup = ~15-20g carbs)",
+        "Whole-wheat bread (2 slices = ~30g carbs)"
+      ],
+      "healthy_fats": [
+        "Avocado (1/2 avocado = ~15g fat)",
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Olive oil (1 tablespoon = ~14g fat)",
+        "Flaxseed oil (1 tablespoon = ~14g fat)"
+      ]
+    },
+    "practical_tips": [
+      "Track your calorie and macro intake using a food diary or app.",
+      "Prioritize whole, unprocessed vegan foods over processed vegan alternatives.",
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Olive oil (1 tablespoon = ~14g fat)",
+        "Flaxseed oil (1 tablespoon = ~14g fat)"
+      ]
+    },
+    "practical_tips": [
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Olive oil (1 tablespoon = ~14g fat)",
+        "Flaxseed oil (1 tablespoon = ~14g fat)"
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Olive oil (1 tablespoon = ~14g fat)",
+        "Nuts (1/4 cup = ~20g fat)",
+        "Seeds (1/4 cup = ~15g fat)",
+        "Olive oil (1 tablespoon = ~14g fat)",
+        "Flaxseed oil (1 tablespoon = ~14g fat)"
+      ]
+    },
+    "practical_tips": [
+      "Track your calorie and macro intake using a food diary or app.",
+      "Prioritize whole, unprocessed vegan foods over processed vegan alternatives.",
+      "Stay hydrated by drinking plenty of water throughout the day.",
+      "Adjust your calorie and macro intake based on your progress and how you feel.",
+      "Listen to your body and don't be afraid to adjust the plan if needed.",
+      "Consult with a registered dietitian or sports nutritionist for personalized guidance."
+    ]
+  }
