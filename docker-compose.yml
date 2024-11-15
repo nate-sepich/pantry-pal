@@ -9,7 +9,7 @@ services:
 
   ui:
     build:
-      context: ./Streamlit/
+      context: ./streamlit/
       dockerfile: Dockerfile
     container_name: ui_service
     ports:

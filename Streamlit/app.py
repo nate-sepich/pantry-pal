@@ -1,74 +1,74 @@
-import os
+# app.py
+
 import streamlit as st
-import requests
-
-if os.getenv("API_BASE"):
-    API_URL = os.getenv("API_BASE")
-else:
-    API_URL = "http://localhost:8000/pantry/items"
-
-
-def fetch_pantry_items():
-    try:
-        response = requests.get(API_URL)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error fetching pantry items: {e}")
-        return []
-
-
-def add_pantry_item(name, quantity):
-    item = {"product_name": name, "quantity": quantity}
-    try:
-        response = requests.post(API_URL, json=item)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error adding pantry item: {e}")
-        return None
-
-
-def delete_pantry_item(item_id):
-    try:
-        response = requests.delete(f"{API_URL}/{item_id}")
-        response.raise_for_status()
-        return response.status_code
-    except requests.RequestException as e:
-        st.error(f"Error deleting pantry item: {e}")
-        return None
-
+from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item
 
 st.title("Pantry Inventory")
 
-with st.form("add_item_form"):
-    name = st.text_input("Item Name")
-    quantity = st.number_input("Quantity", min_value=1)
-    submitted = st.form_submit_button("Add Item")
-    if submitted:
-        if add_pantry_item(name, quantity):
-            st.success("Item added successfully")
-            st.experimental_rerun()  # Auto-refresh the page
+# Sidebar for adding new items
+with st.sidebar:
+    st.header("Add New Item")
+    with st.form("add_item_form"):
+        name = st.text_input("Item Name")
+        quantity = st.number_input("Quantity", min_value=1)
+        submitted = st.form_submit_button("Add Item")
+        if submitted:
+            if add_pantry_item(name, quantity):
+                st.success("Item added successfully")
+                st.rerun()  # Refresh the page to show new item
 
 st.header("Pantry Items")
 
-if st.button("Refresh Pantry"):
-    items = fetch_pantry_items()
-else:
-    items = fetch_pantry_items()
+# Callback functions for deletion
+def confirm_delete(item_id):
+    st.session_state[f"delete_confirm_{item_id}"] = True
 
-if items:
-    st.write("### Pantry Items")
-    for item in items:
-        col1, col2, col3, col4, col5, col6 = st.columns([3, 1, 1, 1, 1, 1])
-        col1.write(f"Name: {item['product_name']}")
-        col2.write(f"Quantity: {item['quantity']}")
-        col4.write(f"Protein: {item['macros']['protein']}")
-        col5.write(f"Carbs: {item['macros']['carbohydrates']}g")
-        if col6.button(f"Delete", key=item["id"]):
-            if st.confirm(f"Are you sure you want to delete {item['product_name']}?"):
-                if delete_pantry_item(item["id"]) == 204:
-                    st.success("Item deleted successfully")
-                    st.experimental_rerun()  # Auto-refresh the page
-else:
-    st.write("No items in pantry")
+def delete_item(item_id):
+    if delete_pantry_item(item_id):
+        st.success("Item deleted successfully")
+        # Remove the confirmation state
+        del st.session_state[f"delete_confirm_{item_id}"]
+    else:
+        st.error("Failed to delete the item.")
+
+def cancel_delete(item_id):
+    st.session_state[f"delete_confirm_{item_id}"] = False
+
+def render_pantry_items():
+    """Display pantry items and handle deletion with confirmation."""
+    items = fetch_pantry_items()
+    if items:
+        for item in items:
+            item_id = item['id']
+            with st.expander(f"{item['product_name']} - Quantity: {item['quantity']}"):
+                st.write(f"**Protein**: {item['macros']['protein']}g")
+                st.write(f"**Carbs**: {item['macros']['carbohydrates']}g")
+
+                if not st.session_state.get(f"delete_confirm_{item_id}", False):
+                    # Show the Delete button
+                    st.button(
+                        "Delete",
+                        key=f"delete_{item_id}",
+                        on_click=confirm_delete,
+                        args=(item_id,)
+                    )
+                else:
+                    # Show confirmation message and Yes/No buttons
+                    st.warning(f"Are you sure you want to delete **{item['product_name']}**?")
+                    col1, col2 = st.columns(2)
+                    col1.button(
+                        "Yes",
+                        key=f"confirm_yes_{item_id}",
+                        on_click=delete_item,
+                        args=(item_id,)
+                    )
+                    col2.button(
+                        "No",
+                        key=f"confirm_no_{item_id}",
+                        on_click=cancel_delete,
+                        args=(item_id,)
+                    )
+    else:
+        st.write("No items in pantry.")
+
+render_pantry_items()
