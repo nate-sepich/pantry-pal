@@ -1,0 +1,21 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api_service
+    ports:
+      - "8000:8000"  # Expose API on port 8000
+
+  ui:
+    build:
+      context: ./Streamlit/
+      dockerfile: Dockerfile
+    container_name: ui_service
+    ports:
+      - "8501:8501"  # Expose UI on port 8501
+    environment:
+      API_BASE: http://api:8000/pantry/items
+    depends_on:
+      - api
+
