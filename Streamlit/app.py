@@ -1,7 +1,12 @@
+import os
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000/pantry/items"
+if os.getenv("API_BASE"):
+    API_URL = os.getenv("API_BASE")
+else:
+    API_URL = "http://localhost:8000/pantry/items"
+
 
 def fetch_pantry_items():
     try:
@@ -11,6 +16,7 @@ def fetch_pantry_items():
     except requests.RequestException as e:
         st.error(f"Error fetching pantry items: {e}")
         return []
+
 
 def add_pantry_item(name, quantity):
     item = {"product_name": name, "quantity": quantity}
@@ -22,6 +28,7 @@ def add_pantry_item(name, quantity):
         st.error(f"Error adding pantry item: {e}")
         return None
 
+
 def delete_pantry_item(item_id):
     try:
         response = requests.delete(f"{API_URL}/{item_id}")
@@ -30,6 +37,7 @@ def delete_pantry_item(item_id):
     except requests.RequestException as e:
         st.error(f"Error deleting pantry item: {e}")
         return None
+
 
 st.title("Pantry Inventory")
 
@@ -57,11 +65,10 @@ if items:
         col2.write(f"Quantity: {item['quantity']}")
         col4.write(f"Protein: {item['macros']['protein']}")
         col5.write(f"Carbs: {item['macros']['carbohydrates']}g")
-        if col6.button(f"Delete", key=item['id']):
+        if col6.button(f"Delete", key=item["id"]):
             if st.confirm(f"Are you sure you want to delete {item['product_name']}?"):
-                if delete_pantry_item(item['id']) == 204:
+                if delete_pantry_item(item["id"]) == 204:
                     st.success("Item deleted successfully")
                     st.experimental_rerun()  # Auto-refresh the page
 else:
     st.write("No items in pantry")
-
