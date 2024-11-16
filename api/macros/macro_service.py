@@ -72,7 +72,8 @@ async def fetch_food_details_async(fdc_id: int, format: str = 'full', nutrients:
                 vitamin_a=nutrients.get('Vitamin A, RAE', 0),
                 vitamin_c=nutrients.get('Vitamin C, total ascorbic acid', 0),
                 calcium=nutrients.get('Calcium, Ca', 0),
-                iron=nutrients.get('Iron, Fe', 0)
+                iron=nutrients.get('Iron, Fe', 0),
+                calories=nutrients.get('Calories', 0)  # Add calories
             )
     return None
 
@@ -150,7 +151,8 @@ def fetch_food_details(fdc_id: int, format: str = 'full', nutrients: Optional[Li
             vitamin_a=nutrients.get('Vitamin A, RAE', 0),
             vitamin_c=nutrients.get('Vitamin C, total ascorbic acid', 0),
             calcium=nutrients.get('Calcium, Ca', 0),
-            iron=nutrients.get('Iron, Fe', 0)
+            iron=nutrients.get('Iron, Fe', 0),
+            calories=nutrients.get('Energy', 0)  # Add calories
         )
     
     return None
@@ -217,6 +219,7 @@ async def get_recipe_macros(recipe: RecipeInput):
             total_macros.vitamin_c += macro_data.vitamin_c * (ingredient_quantity / 100)
             total_macros.calcium += macro_data.calcium * (ingredient_quantity / 100)
             total_macros.iron += macro_data.iron * (ingredient_quantity / 100)
+            total_macros.calories += macro_data.calories * (ingredient_quantity / 100)  # Add calories
         else:
             return {"error": f"Ingredient {recipe.ingredients[i].item_name} not found or data unavailable"}
 
@@ -238,7 +241,8 @@ async def get_recipe_macros(recipe: RecipeInput):
             vitamin_a=total_macros.vitamin_a / recipe.servings,
             vitamin_c=total_macros.vitamin_c / recipe.servings,
             calcium=total_macros.calcium / recipe.servings,
-            iron=total_macros.iron / recipe.servings
+            iron=total_macros.iron / recipe.servings,
+            calories=total_macros.calories / recipe.servings  # Add calories
         )
 
     return total_macros

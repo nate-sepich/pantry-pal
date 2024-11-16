@@ -2,7 +2,13 @@ import uuid
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    email: str
+
 class InventoryItemMacros(BaseModel):
+    calories: Optional[float] = 0
     protein: Optional[float] = 0
     carbohydrates: Optional[float] = 0
     fiber: Optional[float] = 0
@@ -20,7 +26,7 @@ class InventoryItemMacros(BaseModel):
     calcium: Optional[float] = 0
     iron: Optional[float] = 0
     
-    @validator('protein', 'carbohydrates', 'fiber', 'sugar', 'fat', 'saturated_fat', 'cholesterol', 'sodium', pre=True)
+    @validator('calories','protein', 'carbohydrates', 'fiber', 'sugar', 'fat', 'saturated_fat', 'cholesterol', 'sodium', pre=True)
     def non_negative(cls, v):
         if v < 0:
             raise ValueError('Nutritional values must be non-negative')

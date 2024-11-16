@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pantry.pantry_service import pantry_router
 from macros.macro_service import macro_router
+from auth.auth_service import auth_router
 
 app = FastAPI()
 
@@ -17,6 +18,7 @@ app.add_middleware(
 # Add your routers to the main app
 app.include_router(pantry_router, tags=["Pantry"])
 app.include_router(macro_router, tags=["Macros"])
+app.include_router(auth_router, tags=["Auth"])
 
 if __name__ == "__main__":
     import uvicorn

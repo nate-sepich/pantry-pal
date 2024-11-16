@@ -15,7 +15,7 @@ services:
     ports:
       - "8501:8501"  # Expose UI on port 8501
     environment:
-      API_BASE: http://api:8000/pantry/items
+      API_BASE: http://api:8000/
     depends_on:
       - api
 
