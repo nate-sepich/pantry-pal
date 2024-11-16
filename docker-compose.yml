@@ -17,8 +17,8 @@ services:
     ports:
       - "8501:8501"  # Expose UI on port 8501
     environment:
-      API_BASE: http://api:8000/
-      LLM_CLIENT_BASE: http://ollama:11434/
+      API_BASE: http://api:8000
+      LLM_CLIENT_BASE: http://ollama:11434
     depends_on:
       - api
 

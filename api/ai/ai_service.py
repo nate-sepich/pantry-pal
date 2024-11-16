@@ -21,14 +21,11 @@ sample = client.generate(model=ollama_model, prompt='Hello! Respond with only He
 # AI Router for recipe recommendations
 ai_router = APIRouter(prefix="/ai")
 
-def get_user() -> User:
-    # Simulate retrieving a user from a database or authentication system
-    return User(id="user123", username="testuser", email="testuser@example.com")
-
 @ai_router.get("/meal_recommendation")
-def get_recipe_recommendations(user: User = Depends(get_user)):
+def get_recipe_recommendations(user_id: str):
+    logging.info(f"Generating recipe recommendations for user ID: {user_id}")
     """Get AI-powered recipe recommendations based on the user's pantry items."""
-    items = read_pantry_items(user.id)
+    items = read_pantry_items(user_id)
     item_names = [item['product_name'] for item in items]
     prompt = generate_recipe_prompt(item_names)
     
@@ -41,12 +38,14 @@ def get_recipe_recommendations(user: User = Depends(get_user)):
         return {"error": "Failed to generate recipes"}
 
 def generate_recipe_prompt(item_names):
+    logging.info("Generating recipe prompt for AI model")
     """Generate a prompt for the AI model to create recipes based on pantry items."""
     item_list = ", ".join(item_names)
     prompt = f"Create a recipe using the following pantry items: {item_list}. Provide the recipe name, ingredients, and instructions."
     return prompt
 
 def parse_recipe_response(response):
+    logging.info("Parsing AI model response for recipes")
     """Parse the AI model's response to extract recipe information."""
     content = response.get('response', '')
       

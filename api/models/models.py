@@ -4,8 +4,8 @@ from typing import List, Optional
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    username: str
-    email: str
+    username: Optional[str]
+    email: Optional[str]
     health_roi: Optional[float] = 0
     financial_roi: Optional[float] = 0
     environmental_roi: Optional[float] = 0
@@ -37,6 +37,7 @@ class InventoryItemMacros(BaseModel):
 
 class InventoryItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str  # Link to the user who added the item
     product_name: str
     quantity: Optional[int]
     upc: Optional[str] = None
@@ -44,7 +45,7 @@ class InventoryItem(BaseModel):
     cost: Optional[float] = 0
     expiration_date: Optional[str] = None
     environmental_impact: Optional[float] = 0
-    
+
 class RecipeIngredientInput(BaseModel):
     item_name: str
     quantity: float  # Quantity of the ingredient in grams

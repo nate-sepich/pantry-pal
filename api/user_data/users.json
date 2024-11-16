@@ -8,25 +8,25 @@
     },
     {
         "id": "Nate",
-        "username": "nate",
+        "username": "Nate",
         "password": "testpassword",
         "email": "testuser@example.com"
     },
     {
         "id": "Eric",
-        "username": "eric",
+        "username": "Eric",
         "password": "testpassword",
         "email": "testuser@example.com"
     },
     {
         "id": "Maddy",
-        "username": "maddy",
+        "username": "Maddy",
         "password": "testpassword",
         "email": "testuser@example.com"
     },
     {
         "id": "TJ",
-        "username": "tj",
+        "username": "TJ",
         "password": "testpassword",
         "email": "testuser@example.com"
     }
