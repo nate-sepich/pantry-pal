@@ -46,3 +46,23 @@ def authenticate_user(username, password):
     except requests.RequestException as e:
         st.error(f"Error authenticating user: {e}")
         return None
+
+def calculate_roi_metrics(user_id):
+    """Calculate ROI metrics for the user."""
+    try:
+        response = requests.get(f"{API_URL}/roi/metrics", params={"user_id": user_id})
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        st.error(f"Error calculating ROI metrics: {e}")
+        return {"health_roi": "N/A", "financial_roi": "N/A", "environmental_roi": "N/A"}
+
+def get_ai_meal_recommendation(user_id):
+    """Get AI-powered recommendations for the user."""
+    try:
+        response = requests.get(f"{API_URL}/ai/meal_recommendation", params={"user_id": user_id})
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        st.error(f"Error fetching AI meal recommendation: {e}")
+        return []

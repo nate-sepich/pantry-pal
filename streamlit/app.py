@@ -1,7 +1,7 @@
 # app.py
 
 import streamlit as st
-from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item, authenticate_user
+from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item, authenticate_user, calculate_roi_metrics, get_ai_meal_recommendation
 
 st.title("Pantry Pal")
 
@@ -112,3 +112,24 @@ else:
             st.write("No items in pantry.")
 
     render_pantry_items()
+
+    # AI Recommendations
+    def render_ai_recommendations():
+        """Display AI-powered recommendations."""
+        if st.button("Generate AI Recommendation"):
+            recommendations = get_ai_meal_recommendation(user["id"])
+            st.header("AI Meal Recommendation")
+            st.write(f"{recommendations}")
+
+    render_ai_recommendations()
+    
+    # ROI Dashboard
+    def render_roi_dashboard():
+        """Display ROI metrics for the user."""
+        roi_metrics = calculate_roi_metrics(user["id"])
+        st.header("ROI Dashboard")
+        st.write(f"**Health ROI**: {roi_metrics['health_roi']}")
+        st.write(f"**Financial ROI**: {roi_metrics['financial_roi']}")
+        st.write(f"**Environmental ROI**: {roi_metrics['environmental_roi']}")
+
+    render_roi_dashboard()

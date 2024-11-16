@@ -90,3 +90,24 @@ def delete_item(item_id: str, user: User = Depends(get_user)):
             write_pantry_items(user.id, items)
             return {"message": "Item deleted"}
     return {"error": "Item not found"}
+
+@pantry_router.get("/roi/metrics")
+def get_roi_metrics(user: User = Depends(get_user)):
+    """Calculate ROI metrics for the user."""
+    items = read_pantry_items(user.id)
+    health_roi = calculate_health_roi(items)
+    financial_roi = calculate_financial_roi(items)
+    environmental_roi = calculate_environmental_roi(items)
+    return {"health_roi": health_roi, "financial_roi": financial_roi, "environmental_roi": environmental_roi}
+
+def calculate_health_roi(items):
+    # Implement health ROI calculation logic
+    return 0
+
+def calculate_financial_roi(items):
+    # Implement financial ROI calculation logic
+    return 0
+
+def calculate_environmental_roi(items):
+    # Implement environmental ROI calculation logic
+    return 0

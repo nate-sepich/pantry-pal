@@ -4,6 +4,8 @@ services:
       context: ./api
       dockerfile: Dockerfile
     container_name: api_service
+    environment:
+    - AI_OLLAMA_MODEL=mistral  # Set environment variable for the container
     ports:
       - "8000:8000"  # Expose API on port 8000
 
@@ -16,6 +18,21 @@ services:
       - "8501:8501"  # Expose UI on port 8501
     environment:
       API_BASE: http://api:8000/
+      LLM_CLIENT_BASE: http://ollama:11434/
     depends_on:
       - api
 
+  ollama:
+    build:
+      context: .  # Use the current directory as the build context
+      dockerfile: llms/ollama/dockerfile  # Specify the Dockerfile to use for building the image
+    ports:
+      - "11434:11434"  # Map port 11434 on the host to port 11434 in the container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia  # Specify the driver to use for GPU access
+              count: 1  # Limit access to one GPU
+              capabilities: [gpu]  # Specify that the container needs GPU access
+              

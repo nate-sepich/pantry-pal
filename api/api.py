@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pantry.pantry_service import pantry_router
+from pantry.pantry_service import pantry_router, get_roi_metrics
 from macros.macro_service import macro_router
 from auth.auth_service import auth_router
+from ai.ai_service import ai_router
 
 app = FastAPI()
 
@@ -19,6 +20,10 @@ app.add_middleware(
 app.include_router(pantry_router, tags=["Pantry"])
 app.include_router(macro_router, tags=["Macros"])
 app.include_router(auth_router, tags=["Auth"])
+app.include_router(ai_router, tags=["AI"])
+
+# Add new routes
+app.add_api_route("/roi/metrics", get_roi_metrics, methods=["GET"], tags=["ROI"])
 
 if __name__ == "__main__":
     import uvicorn
