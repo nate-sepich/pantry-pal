@@ -41,8 +41,14 @@ def render_pantry_items():
         for item in items:
             item_id = item['id']
             with st.expander(f"{item['product_name']} - Quantity: {item['quantity']}"):
-                st.write(f"**Protein**: {item['macros']['protein']}g")
-                st.write(f"**Carbs**: {item['macros']['carbohydrates']}g")
+                if st.session_state.get(f"expanded_{item_id}", False):
+                    macros = item.get('macros', {})
+                    protein = macros.get('protein', 'N/A')
+                    carbs = macros.get('carbohydrates', 'N/A')
+                    st.write(f"**Protein**: {protein}g")
+                    st.write(f"**Carbs**: {carbs}g")
+                else:
+                    st.session_state[f"expanded_{item_id}"] = True
 
                 if not st.session_state.get(f"delete_confirm_{item_id}", False):
                     # Show the Delete button
