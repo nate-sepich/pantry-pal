@@ -26,7 +26,7 @@ def add_pantry_item(user_id, name, quantity, token):
     """Add a new item to the pantry via the API."""
     logging.info(f"Adding item '{name}' (quantity: {quantity}) for user ID: {user_id}")
     headers = {"Authorization": f"Bearer {token}"}
-    item = {"user_id":user_id, "product_name": name, "quantity": quantity}
+    item = {"user_id": user_id, "product_name": name, "quantity": quantity}
     try:
         response = requests.post(f"{API_URL}/pantry/items", json=item, headers=headers)
         logging.info(f"Response status code: {response.status_code}")
@@ -34,6 +34,7 @@ def add_pantry_item(user_id, name, quantity, token):
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
+        logging.error(f"Error adding pantry item: {e}")
         st.error(f"Error adding pantry item: {e}")
         return None
 
@@ -46,6 +47,7 @@ def delete_pantry_item(user_id, item_id, token):
         response.raise_for_status()
         return response.status_code
     except requests.RequestException as e:
+        logging.error(f"Error deleting pantry item: {e}")
         st.error(f"Error deleting pantry item: {e}")
         return None
 
@@ -63,6 +65,7 @@ def authenticate_user(username, password):
             st.error("Authentication failed: No access token in response")
         return data
     except requests.RequestException as e:
+        logging.error(f"Error authenticating user: {e}")
         st.error(f"Error authenticating user: {e}")
         return None
 
@@ -75,6 +78,7 @@ def calculate_roi_metrics(user_id, token):
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
+        logging.error(f"Error calculating ROI metrics: {e}")
         st.error(f"Error calculating ROI metrics: {e}")
         return {"health_roi": "N/A", "financial_roi": "N/A", "environmental_roi": "N/A"}
 
@@ -87,5 +91,23 @@ def get_ai_meal_recommendation(user_id, token):
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
+        logging.error(f"Error fetching AI meal recommendation: {e}")
         st.error(f"Error fetching AI meal recommendation: {e}")
+        return []
+
+def get_meal_suggestions(user_id, daily_macro_goals, token):
+    """Get AI-powered meal suggestions based on daily macro goals."""
+    logging.info(f"Fetching AI meal suggestions for user ID: {user_id} with goals: {daily_macro_goals}")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.post(
+            f"{API_URL}/ai/meal_suggestions?user_id={user_id}",
+            headers=headers,
+            json=daily_macro_goals
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Error fetching AI meal suggestions: {e}")
+        st.error(f"Error fetching AI meal suggestions: {e}")
         return []

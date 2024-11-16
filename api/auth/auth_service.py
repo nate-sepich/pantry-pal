@@ -45,9 +45,9 @@ def login(user: UserLogin):
             )
             logging.info(f"Generated access token for user: {user.username}")
             return {
-                        "id":u["id"],
-                        "user_id":u["id"],
-                        "username":u["username"],
+                        "id": u["id"],
+                        "user_id": u["id"],
+                        "username": u["username"],
                         "access_token": access_token,
                         "token_type": "bearer"
                     }

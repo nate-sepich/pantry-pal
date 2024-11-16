@@ -2,7 +2,7 @@
 
 import streamlit as st
 import logging
-from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item, authenticate_user, calculate_roi_metrics, get_ai_meal_recommendation
+from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item, authenticate_user, get_ai_meal_recommendation, get_meal_suggestions
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -23,7 +23,7 @@ def login(username, password):
     if user and "access_token" in user:
         logging.info(f"User {username} logged in successfully")
         st.session_state["user"] = user
-        st.session_state["token"] = user["access_token"]  # Ensure token is stored
+        st.session_state["token"] = user["access_token"]
         logging.info(f"Stored token: {st.session_state['token']}")
         st.success("Logged in successfully")
         st.rerun()
@@ -32,7 +32,8 @@ def login(username, password):
         st.error("Invalid username or password")
 
 def logout():
-    logging.info(f"User {st.session_state['user']['username']} logged out")
+    if st.session_state["user"]:
+        logging.info(f"User {st.session_state['user']['username']} logged out")
     st.session_state["user"] = None
     st.session_state["token"] = None
     st.rerun()
@@ -48,6 +49,7 @@ if user is None:
         if submitted:
             login(username, password)
 else:
+    st.sidebar.header(f"Welcome, {user.get('username', 'User')}!")
     st.sidebar.button("Logout", on_click=logout)
     
     st.header(f"{user.get('username', 'User')}'s Pantry Items")
@@ -108,7 +110,6 @@ else:
                         st.session_state[f"expanded_{item_id}"] = True
 
                     if not st.session_state.get(f"delete_confirm_{item_id}", False):
-                        # Show the Delete button
                         st.button(
                             "Delete",
                             key=f"delete_{item_id}",
@@ -116,7 +117,6 @@ else:
                             args=(item_id,)
                         )
                     else:
-                        # Show confirmation message and Yes/No buttons
                         st.warning(f"Are you sure you want to delete **{item['product_name']}**?")
                         col1, col2 = st.columns(2)
                         col1.button(
@@ -140,13 +140,34 @@ else:
     # AI Recommendations
     def render_ai_recommendations():
         """Display AI-powered recommendations."""
+        st.header("AI Meal Recommendation")
         if st.button("Generate AI Recommendation"):
             logging.info(f"User {user['username']} requested AI meal recommendation")
             recommendations = get_ai_meal_recommendation(user["id"], st.session_state["token"])
-            st.header("AI Meal Recommendation")
             st.write(f"{recommendations}")
 
+    def render_meal_suggestions():
+        """Display AI-powered meal suggestions based on daily macro goals."""
+        st.header("AI Meal Suggestions")
+        with st.form("macro_goals_form"):
+            calories = st.number_input("Daily Calories", min_value=0)
+            protein = st.number_input("Daily Protein (g)", min_value=0)
+            carbohydrates = st.number_input("Daily Carbohydrates (g)", min_value=0)
+            fat = st.number_input("Daily Fat (g)", min_value=0)
+            submitted = st.form_submit_button("Get Meal Suggestions")
+            if submitted:
+                daily_macro_goals = {
+                    "calories": calories,
+                    "protein": protein,
+                    "carbohydrates": carbohydrates,
+                    "fat": fat
+                }
+                logging.info(f"User {user['username']} requested meal suggestions with goals: {daily_macro_goals}")
+                meal_suggestions = get_meal_suggestions(user["id"], daily_macro_goals, st.session_state["token"])
+                st.write(f"{meal_suggestions}")
+
     render_ai_recommendations()
+    render_meal_suggestions()
     
     # ROI Dashboard
     # def render_roi_dashboard():

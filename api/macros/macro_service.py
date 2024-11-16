@@ -1,12 +1,14 @@
 import asyncio
 import os
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 import httpx
 import requests
 from pydantic import BaseModel
 from typing import Optional, List
 from dotenv import load_dotenv
 from models.models import InventoryItemMacros, RecipeInput
+import logging
+from storage.utils import read_pantry_items
 
 # load .env file
 load_dotenv()
@@ -14,6 +16,7 @@ load_dotenv()
 # Load your USDA API Key
 USDA_API_KEY = os.getenv('USDA_API_KEY')
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define an async function to search for food items using the USDA FoodData Central API
 async def search_food_item_async(item_name: str) -> Optional[int]:
@@ -245,4 +248,39 @@ async def get_recipe_macros(recipe: RecipeInput):
             calories=total_macros.calories / recipe.servings  # Add calories
         )
 
+    return total_macros
+
+@macro_router.get("/item/{item_id}", response_model=InventoryItemMacros)
+def get_item_macros(item_id: str, user_id: str):
+    logging.info(f"Fetching macros for item ID: {item_id} for user ID: {user_id}")
+    items = read_pantry_items(user_id)
+    for item in items:
+        if item["id"] == item_id:
+            return item.get("macros", InventoryItemMacros())
+    raise HTTPException(status_code=404, detail="Item not found")
+
+@macro_router.get("/total", response_model=InventoryItemMacros)
+def get_total_macros(user_id: str):
+    logging.info(f"Calculating total macros for user ID: {user_id}")
+    items = read_pantry_items(user_id)
+    total_macros = InventoryItemMacros()
+    for item in items:
+        if item.get("macros"):
+            total_macros.calories += item["macros"].get("calories", 0)
+            total_macros.protein += item["macros"].get("protein", 0)
+            total_macros.carbohydrates += item["macros"].get("carbohydrates", 0)
+            total_macros.fiber += item["macros"].get("fiber", 0)
+            total_macros.sugar += item["macros"].get("sugar", 0)
+            total_macros.fat += item["macros"].get("fat", 0)
+            total_macros.saturated_fat += item["macros"].get("saturated_fat", 0)
+            total_macros.polyunsaturated_fat += item["macros"].get("polyunsaturated_fat", 0)
+            total_macros.monounsaturated_fat += item["macros"].get("monounsaturated_fat", 0)
+            total_macros.trans_fat += item["macros"].get("trans_fat", 0)
+            total_macros.cholesterol += item["macros"].get("cholesterol", 0)
+            total_macros.sodium += item["macros"].get("sodium", 0)
+            total_macros.potassium += item["macros"].get("potassium", 0)
+            total_macros.vitamin_a += item["macros"].get("vitamin_a", 0)
+            total_macros.vitamin_c += item["macros"].get("vitamin_c", 0)
+            total_macros.calcium += item["macros"].get("calcium", 0)
+            total_macros.iron += item["macros"].get("iron", 0)
     return total_macros
