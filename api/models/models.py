@@ -4,8 +4,8 @@ from typing import List, Optional
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    username: str
-    email: str
+    username: Optional[str] = None
+    email: Optional[str] = None
     health_roi: Optional[float] = 0
     financial_roi: Optional[float] = 0
     environmental_roi: Optional[float] = 0
@@ -29,7 +29,7 @@ class InventoryItemMacros(BaseModel):
     calcium: Optional[float] = 0
     iron: Optional[float] = 0
     
-    @validator('calories','protein', 'carbohydrates', 'fiber', 'sugar', 'fat', 'saturated_fat', 'cholesterol', 'sodium', pre=True)
+    @validator('calories', 'protein', 'carbohydrates', 'fiber', 'sugar', 'fat', 'saturated_fat', 'cholesterol', 'sodium', pre=True)
     def non_negative(cls, v):
         if v < 0:
             raise ValueError('Nutritional values must be non-negative')
@@ -37,14 +37,15 @@ class InventoryItemMacros(BaseModel):
 
 class InventoryItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str  # Link to the user who added the item
     product_name: str
-    quantity: Optional[int]
+    quantity: Optional[int] = 1
     upc: Optional[str] = None
     macros: Optional[InventoryItemMacros] = None
     cost: Optional[float] = 0
     expiration_date: Optional[str] = None
     environmental_impact: Optional[float] = 0
-    
+
 class RecipeIngredientInput(BaseModel):
     item_name: str
     quantity: float  # Quantity of the ingredient in grams

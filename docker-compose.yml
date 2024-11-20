@@ -5,7 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: api_service
     environment:
-    - AI_OLLAMA_MODEL=mistral  # Set environment variable for the container
+      - AI_OLLAMA_MODEL=nemotron-mini #mistral  # Set environment variable for the container
+      - LLM_CLIENT_BASE=http://ollama:11434
     ports:
       - "8000:8000"  # Expose API on port 8000
 
@@ -17,8 +18,7 @@ services:
     ports:
       - "8501:8501"  # Expose UI on port 8501
     environment:
-      API_BASE: http://api:8000/
-      LLM_CLIENT_BASE: http://ollama:11434/
+      API_BASE: http://api:8000
     depends_on:
       - api
 
