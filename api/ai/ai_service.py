@@ -5,6 +5,8 @@ import logging
 from fastapi import APIRouter, Depends
 from storage.utils import read_pantry_items
 from models.models import InventoryItemMacros, User
+from datetime import datetime
+import pytz  # Import pytz for timezone conversion
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -32,8 +34,7 @@ def get_recipe_recommendations(user_id: str):
     """Get AI-powered recipe recommendations based on the user's pantry items."""
     logging.info(f"Generating recipe recommendations for user ID: {user_id}")
     items = read_pantry_items(user_id)
-    item_names = [item['product_name'] for item in items]
-    prompt = generate_recipe_prompt(item_names)
+    prompt = generate_recipe_prompt(items)
     
     try:
         logging.info(f"Meal generation starting for: {user_id}")
@@ -49,8 +50,7 @@ def get_meal_suggestions(user_id: str, daily_macro_goals: InventoryItemMacros):
     """Get AI-powered meal suggestions based on the user's pantry items and daily macro goals."""
     logging.info(f"Generating meal suggestions for user ID: {user_id} with daily macro goals: {daily_macro_goals}")
     items = read_pantry_items(user_id)
-    item_names = [item['product_name'] for item in items]
-    prompt = generate_meal_suggestion_prompt(item_names, daily_macro_goals)
+    prompt = generate_meal_suggestion_prompt(items, daily_macro_goals)
     
     try:
         logging.info(f"Meal suggestion generation starting for: {user_id}")
@@ -61,22 +61,54 @@ def get_meal_suggestions(user_id: str, daily_macro_goals: InventoryItemMacros):
         logging.error(f"Error generating meal suggestions: {e}")
         return {"error": "Failed to generate meal suggestions"}
 
-def generate_recipe_prompt(item_names):
-    """Generate a prompt for the AI model to create recipes based on pantry items."""
-    logging.info("Generating recipe prompt for AI model")
-    item_list = ", ".join(item_names)
-    prompt = f"Create a recipe using the following pantry items: {item_list}. Provide the recipe name, ingredients, and instructions."
+def generate_recipe_prompt(items):
+    """Generate a prompt for the AI model to create recipes based on pantry items with macros."""
+    logging.info("Generating recipe prompt for AI model with macros")
+    item_details = ""
+    for item in items:
+        macros = item.get('macros', {})
+        # Format macros as a string
+        macros_str = ", ".join(f"{key}: {value}" for key, value in macros.items() if value)
+        item_detail = f"- {item['product_name']}: {macros_str}"
+        item_details += item_detail + "\n"
+    
+    # Add current date and time in US Central Time to the prompt
+    central = pytz.timezone('US/Central')
+    current_time = datetime.now(central).strftime("%Y-%m-%d %H:%M:%S")
+    
+    prompt = (
+        f"Current Date and Time: {current_time}\n\n"
+        "Using the following pantry items with their nutritional information, create a recipe.\n"
+        "Provide the recipe name, ingredients, and instructions.\n\n"
+        "Pantry Items:\n"
+        f"{item_details}"
+    )
     return prompt
 
-def generate_meal_suggestion_prompt(item_names, daily_macro_goals):
+def generate_meal_suggestion_prompt(items, daily_macro_goals):
     """Generate a prompt for the AI model to create meal suggestions based on pantry items and daily macro goals."""
-    logging.info("Generating meal suggestion prompt for AI model")
-    item_list = ", ".join(item_names)
-    prompt = (f"Create meal suggestions using the following pantry items: {item_list}. "
-              f"The meals should meet the following daily macro goals: "
-              f"Calories: {daily_macro_goals.calories}, Protein: {daily_macro_goals.protein}g, "
-              f"Carbohydrates: {daily_macro_goals.carbohydrates}g, Fat: {daily_macro_goals.fat}g. "
-              "Provide the meal name, ingredients, and instructions.")
+    logging.info("Generating meal suggestion prompt for AI model with macros")
+    item_details = ""
+    for item in items:
+        macros = item.get('macros', {})
+        macros_str = ", ".join(f"{key}: {value}" for key, value in macros.items() if value)
+        item_detail = f"- {item['product_name']}: {macros_str}"
+        item_details += item_detail + "\n"
+    
+    # Add current date and time in US Central Time to the prompt
+    central = pytz.timezone('US/Central')
+    current_time = datetime.now(central).strftime("%Y-%m-%d %H:%M:%S")
+    
+    prompt = (
+        f"Current Date and Time: {current_time}\n\n"
+        "Using the following pantry items with their nutritional information, create meal suggestions that meet the specified daily macro goals.\n"
+        "Provide the meal name, ingredients, and instructions.\n\n"
+        f"Daily Macro Goals:\n"
+        f"Calories: {daily_macro_goals.calories}, Protein: {daily_macro_goals.protein}g, "
+        f"Carbohydrates: {daily_macro_goals.carbohydrates}g, Fat: {daily_macro_goals.fat}g\n\n"
+        "Pantry Items:\n"
+        f"{item_details}"
+    )
     return prompt
 
 def parse_recipe_response(response):
