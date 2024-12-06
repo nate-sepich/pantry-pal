@@ -1,11 +1,15 @@
 # app.py
 
+import subprocess
+import time
 import streamlit as st
 import logging
 from datetime import datetime
 import pytz  # Import pytz for timezone conversion
 from api_utils import fetch_pantry_items, add_pantry_item, delete_pantry_item, authenticate_user, get_ai_meal_recommendation, get_meal_suggestions
 import json  # Import json for import/export functionality
+import os  # Import os for setting environment variables
+import requests  # Import requests for interacting with Gradio API
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -69,7 +73,9 @@ if user is None:
     st.header("Login")
     with st.form("login_form"):
         username = st.text_input("Username")
+        st.session_state["username"] = username
         password = st.text_input("Password", type="password")
+        st.session_state["password"] = password
         submitted = st.form_submit_button("Login")
         if submitted:
             login(username, password)
@@ -117,9 +123,7 @@ else:
         # Logout Button with Emoji
         if st.button("🚪 Logout"):
             logout()
-
-
-    # Callback functions for deletion
+        # Callback functions for deletion
     def confirm_delete(item_id):
         logging.info(f"User {user['username']} requested to delete item ID: {item_id}")
         st.session_state[f"delete_confirm_{item_id}"] = True
@@ -137,7 +141,7 @@ else:
     def cancel_delete(item_id):
         logging.info(f"User {user['username']} canceled deletion of item ID: {item_id}")
         st.session_state[f"delete_confirm_{item_id}"] = False
-
+        
     def render_pantry_items():
         """Display pantry items and handle deletion with confirmation."""
         token = st.session_state.get("token")
@@ -189,49 +193,37 @@ else:
         else:
             logging.info(f"No items found in pantry for user {user['username']}")
             st.write("No items in pantry.")
-
+        st.markdown("## AI Meal Recommendations")
+    
+    def render_gradio_interface():
+        """Render Gradio interface for communicating with Ollama hosted LLMs."""
+        gradio_api_url = "http://gradio_api_service:8001/launch_gradio"
+        logging.info(f"Sending request to Gradio API at {gradio_api_url}")
+        try:
+            response = requests.post(gradio_api_url, json={"username": user['username'], "access_token": st.session_state["token"]})
+            response.raise_for_status()
+            response_data = response.json()
+            port = response_data.get("port", 7860)
+            gradio_interface_url = f"http://localhost:{port}/"
+            logging.info(f"Gradio interface launched at {gradio_interface_url}")
+            time.sleep(1)
+            # Load the Gradio interface using an iframe
+            st.write(
+                f'<iframe src="{gradio_interface_url}" width="900" height="700"></iframe>',
+                unsafe_allow_html=True
+            )
+        except requests.RequestException as e:
+            logging.error(f"Failed to launch Gradio interface: {e}")
+            st.error("Failed to launch Gradio interface")
+    
+    st.markdown("---")  # Separator line
+    
+    if st.button("Load Recipe Generator"):
+        render_gradio_interface()
+    # Main content area
+    st.markdown("## Pantry Items")
     render_pantry_items()
 
-    # AI Recommendations
-    def render_ai_recommendations():
-        """Display AI-powered recommendations."""
-        st.header("AI Meal Recommendation")
-        if st.button("Generate AI Recommendation"):
-            logging.info(f"User {user['username']} requested AI meal recommendation")
-            recommendations = get_ai_meal_recommendation(user["id"], st.session_state["token"])
-            st.write(f"{recommendations}")
 
-    def render_meal_suggestions():
-        """Display AI-powered meal suggestions based on daily macro goals."""
-        st.header("AI Meal Suggestions")
-        with st.form("macro_goals_form"):
-            calories = st.number_input("Daily Calories", min_value=0)
-            protein = st.number_input("Daily Protein (g)", min_value=0)
-            carbohydrates = st.number_input("Daily Carbohydrates (g)", min_value=0)
-            fat = st.number_input("Daily Fat (g)", min_value=0)
-            submitted = st.form_submit_button("Get Meal Suggestions")
-            if submitted:
-                daily_macro_goals = {
-                    "calories": calories,
-                    "protein": protein,
-                    "carbohydrates": carbohydrates,
-                    "fat": fat
-                }
-                logging.info(f"User {user['username']} requested meal suggestions with goals: {daily_macro_goals}")
-                meal_suggestions = get_meal_suggestions(user["id"], daily_macro_goals, st.session_state["token"])
-                st.write(f"{meal_suggestions}")
 
-    render_ai_recommendations()
-    render_meal_suggestions()
-    
-    # ROI Dashboard
-    # def render_roi_dashboard():
-    #     """Display ROI metrics for the user."""
-    #     logging.info(f"User {user['username']} requested ROI metrics")
-    #     roi_metrics = calculate_roi_metrics(user["id"], st.session_state["token"])
-    #     st.header("ROI Dashboard")
-    #     st.write(f"**Health ROI**: {roi_metrics['health_roi']}")
-    #     st.write(f"**Financial ROI**: {roi_metrics['financial_roi']}")
-    #     st.write(f"**Environmental ROI**: {roi_metrics['environmental_roi']}")
 
-    # render_roi_dashboard()

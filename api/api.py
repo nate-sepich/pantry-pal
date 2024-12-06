@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pantry.pantry_service import pantry_router, get_roi_metrics
 from macros.macro_service import macro_router

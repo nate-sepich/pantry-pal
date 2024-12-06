@@ -2,6 +2,7 @@ FROM ollama/ollama:latest
 
 ENV OLLAMA_KEEP_ALIVE=1h
 
+COPY llms/ollama/model_download.sh /custom-startup/model_download.sh
 # Expose the Proper Port
 EXPOSE 11434
 

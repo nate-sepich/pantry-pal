@@ -2,9 +2,9 @@ import json
 import os
 from ollama import Client
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from storage.utils import read_pantry_items
-from models.models import InventoryItemMacros, User
+from models.models import InventoryItemMacros, LLMChatRequest
 from datetime import datetime
 import pytz  # Import pytz for timezone conversion
 
@@ -60,6 +60,22 @@ def get_meal_suggestions(user_id: str, daily_macro_goals: InventoryItemMacros):
     except Exception as e:
         logging.error(f"Error generating meal suggestions: {e}")
         return {"error": "Failed to generate meal suggestions"}
+
+@ai_router.post("/llm_chat")
+def llm_chat(request: LLMChatRequest):
+    prompt = request.prompt
+    if not prompt:
+        return {"error": "No prompt provided"}
+    
+    try:
+        response = client.generate(model=ollama_model, prompt=prompt, stream=True)
+        response_text = ""
+        for line in response:
+            response_text += line.get('response', '')
+        return {"response": response_text}
+    except Exception as e:
+        logging.error(f"Error communicating with the LLM: {e}")
+        return {"error": f"Error communicating with the LLM: {str(e)}"}
 
 def generate_recipe_prompt(items):
     """Generate a prompt for the AI model to create recipes based on pantry items with macros."""

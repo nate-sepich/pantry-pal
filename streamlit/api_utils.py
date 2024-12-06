@@ -111,3 +111,13 @@ def get_meal_suggestions(user_id, daily_macro_goals, token):
         logging.error(f"Error fetching AI meal suggestions: {e}")
         st.error(f"Error fetching AI meal suggestions: {e}")
         return []
+
+def llm_chat(prompt):
+    """Send a prompt to the LLM chat API endpoint and return the response."""
+    try:
+        response = requests.post(f"{API_URL}/ai/llm_chat", json={"prompt": prompt})
+        response_data = response.json()
+        return response_data.get('response', 'No response from LLM')
+    except Exception as e:
+        logging.error(f"Error communicating with the LLM chat API: {e}")
+        return f"Error communicating with the LLM chat API: {str(e)}"
