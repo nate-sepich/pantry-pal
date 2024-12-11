@@ -37,13 +37,13 @@ services:
       dockerfile: llms/ollama/dockerfile  # Specify the Dockerfile to use for building the image
     ports:
       - "11434:11434"  # Map port 11434 on the host to port 11434 in the container
-      deploy:
-        resources:
-          reservations:
-            devices:
-              - driver: nvidia  # Specify the driver to use for GPU access
-                count: 1  # Limit access to one GPU
-                capabilities: [gpu]  # Specify that the container needs GPU access
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia  # Specify the driver to use for GPU access
+              count: 1  # Limit access to one GPU
+              capabilities: [gpu]  # Specify that the container needs GPU access
     networks:
       - app-network
 
