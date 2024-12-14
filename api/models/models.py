@@ -2,6 +2,9 @@ import uuid
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 
+class UPCResponseModel(BaseModel):
+    fdc_id: str
+
 class LLMChatRequest(BaseModel):
     prompt: str
 

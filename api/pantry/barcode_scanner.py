@@ -1,95 +1,87 @@
 import cv2
-import numpy as np
 from pyzbar.pyzbar import decode, ZBarSymbol
-import datetime
+import numpy as np
+import requests
 
-# Function to save barcode data to a file
-def save_to_file(data, barcode_type):
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with open("scanned_barcodes.txt", "a") as file:
-        file.write(f"{timestamp} - Type: {barcode_type}, Data: {data}\n")
-    print(f"Saved: {data} ({barcode_type})")
+def decode_barcodes(image):
+    # Decode barcodes in the image (no restrictions on barcode type)
+    barcodes = decode(image)
 
-# Initialize the camera
-def initialize_camera():
-    for i in range(5):  # Try different device indexes
-        cap = cv2.VideoCapture(i)
-        if cap.isOpened():
-            print(f"Camera initialized on device {i}")
-            return cap
-    raise Exception("No camera detected!")
+    barcode_info = []
 
-def main():
-    try:
-        cap = initialize_camera()
-        print("Press 's' to save a barcode manually, 'q' to quit.")
-        
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Failed to capture frame. Exiting...")
-                break
-            
-            # Decode barcodes in the frame
-            try:
-                barcodes = decode(frame, symbols=[ZBarSymbol.CODE128, ZBarSymbol.QRCODE])
-            except Exception as e:
-                print(f"Decoding error: {e}")
-                continue
+    for barcode in barcodes:
+        data = barcode.data.decode('utf-8')
+        barcode_type = barcode.type
+        barcode_info.append((data, barcode_type))
 
-            for barcode in barcodes:
-                data = barcode.data.decode('utf-8')
-                barcode_type = barcode.type
-                print(f"Detected: {data} ({barcode_type})")
+        # Draw bounding box around the barcode
+        points = barcode.polygon
+        if len(points) > 4:  # Adjust for irregular quadrilaterals
+            hull = cv2.convexHull(np.array([point for point in points], dtype=np.float32))
+            points = hull.astype(int).tolist()
 
-                # Draw bounding box around the barcode
-                points = barcode.polygon
-                if len(points) > 4:  # Adjust for irregular quadrilaterals
-                    hull = cv2.convexHull(
-                        np.array([point for point in points], dtype=np.float32)
-                    )
-                    points = hull.astype(int).tolist()
-                if points:
-                    for i in range(len(points)):
-                        cv2.line(
-                            frame,
-                            tuple(points[i]),
-                            tuple(points[(i + 1) % len(points)]),
-                            (0, 255, 0),
-                            3,
-                        )
+        # Only proceed if points are valid
+        if len(points) >= 4:
+            for i in range(len(points)):
+                pt1 = tuple(points[i])
+                pt2 = tuple(points[(i + 1) % len(points)])
                 
-                # Display the barcode data and type on the frame
-                cv2.putText(
-                    frame,
-                    f"{data} ({barcode_type})",
-                    (barcode.rect.left, barcode.rect.top - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 0, 0),
-                    2,
-                )
-            
-            # Show the frame
-            cv2.imshow("Barcode Scanner", frame)
+                # Ensure the points are tuples of length 2
+                if len(pt1) == 2 and len(pt2) == 2:
+                    cv2.line(image, pt1, pt2, (0, 255, 0), 3)
 
-            # Wait for key press
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):  # Quit
-                break
-            elif key == ord('s'):  # Save barcodes
-                if barcodes:
-                    for barcode in barcodes:
-                        data = barcode.data.decode('utf-8')
-                        barcode_type = barcode.type
-                        save_to_file(data, barcode_type)
-                else:
-                    print("No barcode detected to save.")
+        # Display the barcode data and type on the image
+        if barcode.rect:
+            cv2.putText(image, f"{data} ({barcode_type})", (barcode.rect.left, barcode.rect.top - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+    
+    return image, barcode_info
 
-        cap.release()
-        cv2.destroyAllWindows()
-    except Exception as e:
-        print(f"Error: {e}")
+# Load the image (replace with your file path)
+image_path = r"C:\Users\Eric\Downloads\IMG_9158.jpg"
+image = cv2.imread(image_path)
 
-if __name__ == "__main__":
-    main()
+if image is None:
+    print("Error: Could not read the image.")
+else:
+    # Process and decode barcodes
+    img_with_barcodes, barcode_info = decode_barcodes(image)
+
+    # Show the image with bounding boxes and text
+    cv2.imshow("Processed Image", img_with_barcodes)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # Display barcode information
+    if barcode_info:
+        for data, barcode_type in barcode_info:
+            print(f"Detected barcode: {data} ({barcode_type})")
+    else:
+        print("No barcode detected.")
+
+USDA_API_KEY='RZxFMwUiUpxIsWT0gKENTOLrQpRlc3PcyDUTyBYB'
+
+# URL to search for food by GTIN (UPC code)
+search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
+
+params = {
+    'query': data
+    }
+response = requests.get(search_url, params=params)
+
+# Send the GET request
+# response = requests.get(url)
+
+# Check if the request was successful
+if response.status_code == 200:
+    data = response.json()
+    # Assuming the first item in the results list is what we need
+    food_item = data['foods'][0]
+    # Print out food information
+    print("Food Item Found:")
+    print(f"Name: {food_item['description']}")
+    print(f"FDC ID: {food_item['fdcId']}")
+    print(f"Brand Name: {food_item.get('brandOwner', 'N/A')}")
+    print(f"Category: {food_item.get('foodCategory', 'N/A')}")
+else:
+    print(f"Error: {response.status_code}, Could not retrieve data.")

@@ -6,7 +6,7 @@ import requests
 from pydantic import BaseModel
 from typing import Optional, List
 from dotenv import load_dotenv
-from models.models import InventoryItemMacros, RecipeInput
+from models.models import InventoryItemMacros, RecipeInput, UPCResponseModel
 import logging
 from storage.utils import read_pantry_items
 
@@ -26,9 +26,7 @@ async def search_food_item_async(item_name: str) -> Optional[int]:
     """
     search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     params = {
-        'query': item_name,
-        "startDate": "2021-01-01",
-        "endDate": "2021-12-30"
+        'query': item_name
     }
     async with httpx.AsyncClient() as client:
         response = await client.get(search_url, params=params)
@@ -105,9 +103,7 @@ def search_food_item(item_name: str) -> Optional[int]:
     search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search"
     params = {
         'api_key': USDA_API_KEY,
-        'query': item_name,
-        "startDate": "2021-01-01",
-        "endDate": "2021-12-30"
+        'query': item_name
     }
     response = requests.get(search_url, params=params)
     
@@ -284,3 +280,12 @@ def get_total_macros(user_id: str):
             total_macros.calcium += item["macros"].get("calcium", 0)
             total_macros.iron += item["macros"].get("iron", 0)
     return total_macros
+
+@macro_router.get("/UPC", response_model=UPCResponseModel)
+def get_total_macros(upc_code: str):
+    fdc_id = search_food_item(upc_code)
+    if fdc_id == None:
+        upc_code = '0' + upc_code
+        fdc_id = search_food_item(upc_code)
+    response = UPCResponseModel(fdc_id = fdc_id)
+    return response
