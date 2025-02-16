@@ -1,64 +1,106 @@
 # PantryPal
 
+## Overview
+PantryPal combines three powerful systems to help you manage your kitchen and nutrition more effectively:
+
+### 1. Smart Macro & Pantry Management 
+<div align="center">
+  <img src="docs/1.png" alt="Macro Tracking Interface" width="800"/>
+</div>
+
+PantryPal provides comprehensive nutritional insights:
+- 🔄 Real-time macro-nutrient calculations
+- 📊 USDA FoodData Central integration
+- 📱 UPC barcode scanning support
+- 🔍 Smart ingredient auto-completion
+- ⚖️ Per-serving nutritional scaling
+- 📈 Full pantry nutritional analytics
+
+### 2. AI-Powered Recipe Generation
+<div align="center">
+  <img src="docs/2.png" alt="Recipe Generation Interface" width="800"/>
+</div>
+
+Intelligent meal planning system featuring:
+- 🧠 Context-aware recipe suggestions
+- 🎯 Macro-nutrient target optimization
+- 🥗 Dietary restriction compliance
+- 🔄 Dynamic serving size adjustments
+- 🕒 Timezone-aware meal planning
+
+### 3. Secure User Management
+<div align="center">
+  <img src="docs/3.png" alt="Authentication Interface" width="800"/>
+</div>
+
+Enterprise-grade security features:
+- 🔐 JWT-based authentication
+- 🔒 Secure token management
+- ⏱️ Configurable session handling
+- 🚫 Data isolation per user
+- 🔑 Role-based access control
+
 ## Technical Overview
 
 PantryPal is a microservices-based AI-powered kitchen management system that demonstrates modern software architecture and AI integration patterns. The system combines inventory tracking with intelligent recipe generation through Ollama LLM integration.
 
 ## Technical Architecture
 
-### AI Components
+PantryPal uses a modern microservices architecture with four key service layers:
 
-#### Recipe Generation Engine
-- Leverages Ollama's Mistral model for contextual recipe creation based on:
-  - Available ingredients with nutritional information
-  - User dietary restrictions
-  - Macro-nutrient targets
-  - Real-time inventory state
+```
++-------------------------PantryPal Architecture-------------------------+
+|                                                                      |
+|                        [Client Layer]                                |
+|  +-------------+                                                     |
+|  |  Streamlit  |    Real-time UI, Recipe Browsing, Inventory Mgmt   |
+|  |     UI      |                                                     |
+|  +------+------+                                                     |
+|         |                                                            |
+|         v                                                            |
+|    [API Layer]        FastAPI Backend Services                       |
+|  +-------------+     +--------------+    +---------------+           |
+|  |   Auth &    |     |   Pantry &   |    |     AI &      |          |
+|  |   Users     |     |   Inventory  |    |    Recipes    |          |
+|  +-------------+     +--------------+    +---------------+           |
+|         |                  |                    |                    |
+|         v                  v                    v                    |
+|    [Service Layer]    Core Business Logic                           |
+|  +-------------+     +--------------+    +---------------+           |
+|  | JWT Auth    |     | USDA Food    |    |   Ollama      |          |
+|  | Sessions    |<--->| Data Central |<-->|   LLM Model   |          |
+|  | User Mgmt   |     | API Client   |    |   Generation  |          |
+|  +-------------+     +--------------+    +---------------+           |
+|         |                  |                    |                    |
+|         v                  v                    v                    |
+|    [Storage Layer]    Persistent Data                               |
+|  +--------------------------------------------------+              |
+|  |                   JSON Storage                     |              |
+|  |  • Users  • Inventory  • Recipes  • Auth Sessions  |              |
+|  +--------------------------------------------------+              |
+|                                                                      |
++----------------------------------------------------------------------+
 
-#### AI Service Features
-- Streaming LLM responses
-- Context-aware recipe generation
-- Macro-nutrient aware meal planning
-- Timezone-aware suggestions
+Flow:
+→ HTTP/REST   ⇢ Internal Calls   ⇣ Data Access   ↺ Background Tasks
+```
 
-### Backend Architecture
+### Core Components
 
-#### API Layer (FastAPI)
-- Async request handling
-- Ollama client integration
-- Structured prompt engineering
-- Error handling and logging
+#### Authentication & Users
+- JWT-based security
+- Session management
+- User data isolation
 
-#### Service Layer
-- Modular microservices design
-- Asynchronous operations
-- Inventory management
-- Recipe parsing and generation
+#### Pantry & Inventory
+- USDA nutritional data
+- Async macro processing
+- Inventory tracking
 
-### Frontend Implementations
-
-#### Streamlit Interface
-- Real-time data visualization
-- Interactive recipe browsing
-- Inventory management dashboard
-
-## Technical Stack
-
-### Core Technologies
-- Python 3.8+
-- FastAPI
-- Streamlit
-- Docker/Docker Compose
-
-### AI Integration
-- Ollama LLM
-- Mistral model
-- Async API orchestration
-
-### Data Management
-- JSON-based persistent storage
-- Structured prompt templates
-- Macro-nutrient tracking
+#### AI & Recipes
+- Ollama LLM integration
+- Recipe generation
+- Macro-aware planning
 
 ## Development Setup
 
@@ -71,6 +113,9 @@ PantryPal is a microservices-based AI-powered kitchen management system that dem
 ```bash
 AI_OLLAMA_MODEL=mistral
 LLM_CLIENT_BASE=http://ollama:11434
+USDA_API_KEY=your_api_key_here  # Required for nutritional data
+SECRET_KEY=your_secret_key      # Required for JWT encryption
+ACCESS_TOKEN_EXPIRE_MINUTES=30  # JWT token expiry time
 ```
 
 ### Running with Docker
