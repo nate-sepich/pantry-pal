@@ -3,6 +3,7 @@ import os
 from ollama import Client
 import logging
 from fastapi import APIRouter, Depends, Request
+from starlette.responses import StreamingResponse
 from storage.utils import read_pantry_items
 from models.models import InventoryItemMacros, LLMChatRequest
 from datetime import datetime
@@ -67,15 +68,16 @@ def llm_chat(request: LLMChatRequest):
     if not prompt:
         return {"error": "No prompt provided"}
     
-    try:
-        response = client.generate(model=ollama_model, prompt=prompt, stream=True)
-        response_text = ""
-        for line in response:
-            response_text += line.get('response', '')
-        return {"response": response_text}
-    except Exception as e:
-        logging.error(f"Error communicating with the LLM: {e}")
-        return {"error": f"Error communicating with the LLM: {str(e)}"}
+    def generate():
+        try:
+            response = client.generate(model=ollama_model, prompt=prompt, stream=True)
+            for line in response:
+                yield line.get('response', '')
+        except Exception as e:
+            logging.error(f"Error communicating with the LLM: {e}")
+            yield f"Error communicating with the LLM: {str(e)}"
+    
+    return StreamingResponse(generate(), media_type="text/plain")
 
 def generate_recipe_prompt(items):
     """Generate a prompt for the AI model to create recipes based on pantry items with macros."""

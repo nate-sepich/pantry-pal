@@ -121,3 +121,14 @@ def llm_chat(prompt):
     except Exception as e:
         logging.error(f"Error communicating with the LLM chat API: {e}")
         return f"Error communicating with the LLM chat API: {str(e)}"
+
+def get_autocomplete_suggestions(query):
+    """Fetch top 5 autocomplete suggestions based on the query."""
+    logging.info(f"Fetching autocomplete suggestions for query: {query}")
+    try:
+        response = requests.get(f"{API_URL}/macros/autocomplete", params={"query": query})
+        response.raise_for_status()
+        return response.json().get("suggestions", [])
+    except requests.RequestException as e:
+        logging.error(f"Error fetching autocomplete suggestions: {e}")
+        return []

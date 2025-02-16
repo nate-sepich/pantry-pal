@@ -93,7 +93,6 @@ async def query_food_api_async(item_name: str) -> Optional[InventoryItemMacros]:
 
 macro_router = APIRouter(prefix="/macros")
 
-
 # Define a function to search for food items using the USDA FoodData Central API
 def search_food_item(item_name: str) -> Optional[int]:
     """
@@ -168,8 +167,6 @@ def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
         return fetch_food_details(fdc_id)
     
     return None
-
-macro_router = APIRouter(prefix="/macros")
 
 @macro_router.get("/item")
 def get_item_macros(item_name: str):
@@ -281,11 +278,31 @@ def get_total_macros(user_id: str):
             total_macros.iron += item["macros"].get("iron", 0)
     return total_macros
 
+@macro_router.get("/autocomplete")
+async def autocomplete(query: str):
+    logging.info(f"Providing autocomplete suggestions for query: {query}")
+    """
+    Provide top 5 autocomplete suggestions based on the query using USDA API.
+    """
+    search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
+    params = {
+        'query': query
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.get(search_url, params=params)
+        if response.status_code == 200:
+            search_data = response.json()
+            suggestions = [food['brandOwner'] for food in search_data.get('foods', [])]
+            return {"suggestions": suggestions[:5]}
+        else:
+            logging.error(f"Error fetching autocomplete suggestions: {response.status_code}")
+            raise HTTPException(status_code=response.status_code, detail="Error fetching autocomplete suggestions")
+
 @macro_router.get("/UPC", response_model=UPCResponseModel)
 def get_total_macros(upc_code: str):
     fdc_id = search_food_item(upc_code)
     if fdc_id == None:
-        upc_code = '0' + upc_code
+        upc_code = + upc_code
         fdc_id = search_food_item(upc_code)
     response = UPCResponseModel(fdc_id = fdc_id)
     return response

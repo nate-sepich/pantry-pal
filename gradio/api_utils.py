@@ -2,6 +2,7 @@
 import os
 import requests
 import logging
+import httpx
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -9,14 +10,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 API_URL = os.getenv("API_BASE", "http://api:8000")
 
 async def llm_chat(prompt):
-    """Send a prompt to the LLM chat API endpoint and return the response."""
+    """Send a prompt to the LLM chat API endpoint and return the streamed response."""
     try:
-        response = requests.post(f"{API_URL}/ai/llm_chat", json={"prompt": prompt})
-        response.raise_for_status()
-        return response.json().get("response", "")
+        async with httpx.AsyncClient() as client:
+            async with client.stream("POST", f"{API_URL}/ai/llm_chat", json={"prompt": prompt}) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_text():
+                    yield chunk
     except Exception as e:
         logging.error(f"Error communicating with the LLM chat API: {e}")
-        return f"Error communicating with the LLM chat API: {str(e)}"
+        yield f"Error communicating with the LLM chat API: {str(e)}"
 
 def fetch_pantry_items(user_id, token):
     """Fetch pantry items from the API."""

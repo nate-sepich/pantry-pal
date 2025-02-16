@@ -31,13 +31,45 @@ class AuthDetails(BaseModel):
     username: str
     access_token: str
 
-async def communicate_with_llm(recipe_type: str, pantry_items: List[str], macro_goals: str) -> str:
-    """Construct a prompt based on user inputs and send it to the LLM."""
-    prompt = f"Create a {recipe_type} recipe using the following pantry items: {', '.join(pantry_items)}."
-    if macro_goals:
-        prompt += f"The recipe should meet these macro goals: {macro_goals}."
-    ret = await llm_chat(prompt)
-    return ret 
+async def communicate_with_llm(recipe_type: str, pantry_items: List[str], mods: str, all_pantry_items: List[str]):
+    """Construct a prompt based on user inputs and stream the response from the LLM."""
+    prompt = (
+        "You are a culinary expert AI. Your task is to create a detailed and delicious recipe based on the user inputs below. "
+        "Do not repeat the instructions or user inputs except as they naturally appear within the formatted recipe. "
+        "The final answer should be a stand-alone recipe that another person can follow without additional explanation.\n"
+        "\n"
+        "Please format the response in Markdown as follows:\n"
+        "## A short, descriptive title for the recipe.\n"
+        "\n"
+        "## Description\n"
+        "A brief overview of what the dish is and why it’s appealing.\n"
+        "\n"
+        "## Ingredients\n"
+        "A bulleted list of all the ingredients needed.\n"
+        "- Clearly indicate which ingredients come from the selected pantry items.\n"
+        "- If any required ingredients are not available in the provided pantry, note them after the list under a 'Missing Ingredients:' heading.\n"
+        "\n"
+        "## Instructions\n"
+        "A clear, step-by-step guide on how to prepare and cook the dish.\n"
+        "\n"
+        "## Modifications\n"
+        "If there are requested modifications, list and incorporate them here.\n"
+        "\n"
+        "### User Input\n"
+        f"- Recipe Type: {recipe_type}\n"
+        # f"- Available Pantry Items: {all_pantry_items}\n"
+        f"- Selected Pantry Items: {', '.join(pantry_items)}\n"
+    )
+    if mods:
+        prompt += f"- Requested Modifications: {mods}\n"
+    prompt += "### Recipe\n"
+
+    logging.info(f"Prompt: {prompt}")
+
+    response_text = ""
+    async for chunk in llm_chat(prompt):
+        response_text += chunk
+        yield response_text
 
 def greet(name):
     return "Hello, " + name + "!"
@@ -58,12 +90,14 @@ async def launch_gradio(auth_details: AuthDetails):
 
     logging.info(f"Launching Gradio interface on port {port}")
 
+    all_pantry_items = fetch_pantry_items(auth_details.username, auth_details.access_token)
     iface = Interface(
         fn=communicate_with_llm,
         inputs=[
             Dropdown(label="Recipe Type", choices=["Breakfast", "Lunch", "Dinner", "Snack", "Dessert"]),
-            CheckboxGroup(label="Pantry Items", choices=fetch_pantry_items(auth_details.username, auth_details.access_token)),
-            TextArea(label="Modifications (optional)", placeholder="e.g., High protein, low carb")
+            CheckboxGroup(label="Pantry Items", choices=all_pantry_items),
+            TextArea(label="Modifications (optional)", placeholder="e.g., High protein, low carb"),
+            CheckboxGroup(value=all_pantry_items,visible=False,choices=all_pantry_items)
         ],
         outputs=Markdown(label="Pal Response"),
         title="Recipe Generator",

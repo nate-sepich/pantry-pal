@@ -37,51 +37,47 @@ def decode_barcodes(image):
     
     return image, barcode_info
 
-# Load the image (replace with your file path)
-image_path = r"C:\Users\Eric\Downloads\IMG_9158.jpg"
-image = cv2.imread(image_path)
+# Initialize webcam
+cap = cv2.VideoCapture(0)
 
-if image is None:
-    print("Error: Could not read the image.")
+if not cap.isOpened():
+    print("Error: Could not open webcam.")
 else:
-    # Process and decode barcodes
-    img_with_barcodes, barcode_info = decode_barcodes(image)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame.")
+            break
 
-    # Show the image with bounding boxes and text
-    cv2.imshow("Processed Image", img_with_barcodes)
-    cv2.waitKey(0)
+        # Process and decode barcodes
+        img_with_barcodes, barcode_info = decode_barcodes(frame)
+
+        # Show the frame with bounding boxes and text
+        cv2.imshow("Barcode Scanner", img_with_barcodes)
+
+        # Display barcode information and make API requests
+        if barcode_info:
+            for data, barcode_type in barcode_info:
+                print(f"Detected barcode: {data} ({barcode_type})")
+                USDA_API_KEY = 'RZxFMwUiUpxIsWT0gKENTOLrQpRlc3PcyDUTyBYB'
+                search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
+                params = {'query': data}
+                response = requests.get(search_url, params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    food_item = data['foods'][0]
+                    print("Food Item Found:")
+                    print(f"Name: {food_item['description']}")
+                    print(f"FDC ID: {food_item['fdcId']}")
+                    print(f"Brand Name: {food_item.get('brandOwner', 'N/A')}")
+                    print(f"Category: {food_item.get('foodCategory', 'N/A')}")
+                else:
+                    print(f"Error: {response.status_code}, Could not retrieve data.")
+        
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release the webcam and close windows
+    cap.release()
     cv2.destroyAllWindows()
-
-    # Display barcode information
-    if barcode_info:
-        for data, barcode_type in barcode_info:
-            print(f"Detected barcode: {data} ({barcode_type})")
-    else:
-        print("No barcode detected.")
-
-USDA_API_KEY='RZxFMwUiUpxIsWT0gKENTOLrQpRlc3PcyDUTyBYB'
-
-# URL to search for food by GTIN (UPC code)
-search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
-
-params = {
-    'query': data
-    }
-response = requests.get(search_url, params=params)
-
-# Send the GET request
-# response = requests.get(url)
-
-# Check if the request was successful
-if response.status_code == 200:
-    data = response.json()
-    # Assuming the first item in the results list is what we need
-    food_item = data['foods'][0]
-    # Print out food information
-    print("Food Item Found:")
-    print(f"Name: {food_item['description']}")
-    print(f"FDC ID: {food_item['fdcId']}")
-    print(f"Brand Name: {food_item.get('brandOwner', 'N/A')}")
-    print(f"Category: {food_item.get('foodCategory', 'N/A')}")
-else:
-    print(f"Error: {response.status_code}, Could not retrieve data.")

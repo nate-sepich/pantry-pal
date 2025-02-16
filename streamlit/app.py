@@ -209,17 +209,17 @@ else:
             time.sleep(1)
             # Load the Gradio interface using an iframe
             st.write(
-                f'<iframe src="{gradio_interface_url}" width="900" height="700"></iframe>',
+                f'<iframe src="{gradio_interface_url}" width="775" height="800"></iframe>',
                 unsafe_allow_html=True
             )
         except requests.RequestException as e:
             logging.error(f"Failed to launch Gradio interface: {e}")
             st.error("Failed to launch Gradio interface")
     
-    st.markdown("---")  # Separator line
-    
     if st.button("Load Recipe Generator"):
         render_gradio_interface()
+        
+    st.markdown("---")  # Separator line
     # Main content area
     st.markdown("## Pantry Items")
     render_pantry_items()
