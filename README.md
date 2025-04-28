@@ -53,31 +53,31 @@ PantryPal uses a modern microservices architecture with four key service layers:
 |                                                                      |
 |                        [Client Layer]                                |
 |  +-------------+                                                     |
-|  |  Streamlit  |    Real-time UI, Recipe Browsing, Inventory Mgmt   |
+|  |  Streamlit  |    Real-time UI, Recipe Browsing, Inventory Mgmt    |
 |  |     UI      |                                                     |
 |  +------+------+                                                     |
 |         |                                                            |
 |         v                                                            |
 |    [API Layer]        FastAPI Backend Services                       |
 |  +-------------+     +--------------+    +---------------+           |
-|  |   Auth &    |     |   Pantry &   |    |     AI &      |          |
-|  |   Users     |     |   Inventory  |    |    Recipes    |          |
+|  |   Auth &    |     |   Pantry &   |    |     AI &      |           |
+|  |   Users     |     |   Inventory  |    |    Recipes    |           |
 |  +-------------+     +--------------+    +---------------+           |
 |         |                  |                    |                    |
 |         v                  v                    v                    |
-|    [Service Layer]    Core Business Logic                           |
+|    [Service Layer]    Core Business Logic                            |
 |  +-------------+     +--------------+    +---------------+           |
-|  | JWT Auth    |     | USDA Food    |    |   Ollama      |          |
-|  | Sessions    |<--->| Data Central |<-->|   LLM Model   |          |
-|  | User Mgmt   |     | API Client   |    |   Generation  |          |
+|  | JWT Auth    |     | USDA Food    |    |   Ollama      |           |
+|  | Sessions    |<--->| Data Central |<-->|   LLM Model   |           |
+|  | User Mgmt   |     | API Client ↺|    |   Generation  |            |
 |  +-------------+     +--------------+    +---------------+           |
 |         |                  |                    |                    |
 |         v                  v                    v                    |
-|    [Storage Layer]    Persistent Data                               |
-|  +--------------------------------------------------+              |
+|    [Storage Layer]    Persistent Data                                |
+|  +--------------------------------------------------+                |  
 |  |                   JSON Storage                     |              |
 |  |  • Users  • Inventory  • Recipes  • Auth Sessions  |              |
-|  +--------------------------------------------------+              |
+|  +--------------------------------------------------+                |
 |                                                                      |
 +----------------------------------------------------------------------+
 

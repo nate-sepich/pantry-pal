@@ -3,11 +3,12 @@ from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from storage.utils import read_pantry_items, write_pantry_items, read_users
-from models.models import InventoryItem, User
+from storage.utils import read_pantry_items, write_pantry_items, read_users, soft_delete_pantry_item
+from models.models import InventoryItem, InventoryItemMacros, User  
 import httpx
+import os
 
-SECRET_KEY = "your_secret_key"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -15,6 +16,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 pantry_router = APIRouter(prefix="/pantry")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def get_user_id_from_token(token: str = Depends(oauth2_scheme)) -> str:
+    """Extract user_id from the JWT."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token: user_id not found")
+        return user_id
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail="Invalid token") from e
 
 def get_user(token: str = Depends(oauth2_scheme)) -> User:
     logging.info(f"Decoding JWT token to get user: {token}")
@@ -25,12 +37,11 @@ def get_user(token: str = Depends(oauth2_scheme)) -> User:
         if user_id is None:
             logging.warning("Token does not contain user ID")
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-        users = read_users()
-        for user in users:
-            if user["id"] == user_id:
-                logging.info(f"User found: {user}")
-                return User(**user)
-        logging.warning("User not found")
+        user = read_users()  # Assuming this returns a list of User objects
+        for u in user:
+            if u.id == user_id:  # Use attribute-style access
+                return u
+        logging.warning(f"User with ID {user_id} not found")
         raise HTTPException(status_code=404, detail="User not found")
     except JWTError as e:
         logging.error(f"JWT decoding error: {e}")
@@ -64,35 +75,37 @@ async def call_get_item_macros(item_name: str, item_id: str = None, user_id: str
     Update the item in the pantry with the macros for a specific user.
     """
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"http://localhost:8000/macros/item?item_name={item_name}")
-        # Handle the response if needed
-        print(response.json())
-        
+        response = await client.get(f"https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/item?item_name={item_name}")
+        macros_data = response.json()
+        logging.info(f"Macros fetched for item {item_name}: {macros_data}")
+
         # Update the item in the pantry with the macros
         items = read_pantry_items(user_id)
         for i, item in enumerate(items):
-            if item["id"] == item_id:
-                items[i]["macros"] = response.json()
-                write_pantry_items(user_id, items)
-                return items[i]
+            if item.id == item_id:  # Use attribute-style access
+                item.macros = InventoryItemMacros(**macros_data)  # Update macros
+                write_pantry_items(user_id, items)  # Save updated items
+                return item
 
-@pantry_router.post("/items", response_model=InventoryItem)
-def create_item(item: InventoryItem, background_tasks: BackgroundTasks, user: User = Depends(get_user)) -> InventoryItem:
-    logging.info(f"Creating new item '{item.product_name}' for user ID: {user.id}")
-    """
-    Create a new item in the pantry for a specific user.
-    Add a background task to asynchronously fetch the macros for the item.
-    """
-    item.user_id = user.id  # Link the item to the user
-    items = read_pantry_items(user.id)
-    item_dict = item.dict()
-    items.append(item_dict)
-    write_pantry_items(user.id, items)
-    
-    # Add the background task
-    background_tasks.add_task(call_get_item_macros, item.product_name, item.id, user.id)
-    
-    return item
+        logging.warning(f"Item with ID {item_id} not found for user ID {user_id}")
+
+@pantry_router.post("/items")
+def create_pantry_item(
+    item: InventoryItem, 
+    background_tasks: BackgroundTasks, 
+    user_id: str = Depends(get_user_id_from_token)
+):
+    """Create a pantry item for the authenticated user."""
+    try:
+        # Write the pantry item to storage
+        write_pantry_items(user_id, [item])
+        
+        # Add a background task to fetch macros for the item
+        background_tasks.add_task(call_get_item_macros, item.product_name, item.id, user_id)
+        
+        return {"message": "Pantry item created successfully", "item": item.dict()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create pantry item: {str(e)}")
 
 @pantry_router.put("/items/{item_id}", response_model=InventoryItem)
 def update_item(item_id: str, item: InventoryItem, user: User = Depends(get_user)) -> InventoryItem:
@@ -111,17 +124,15 @@ def update_item(item_id: str, item: InventoryItem, user: User = Depends(get_user
 
 @pantry_router.delete("/items/{item_id}")
 def delete_item(item_id: str, user: User = Depends(get_user)) -> dict:
-    logging.info(f"Deleting item ID: {item_id} for user ID: {user.id}")
+    logging.info(f"Soft deleting item ID: {item_id} for user ID: {user.id}")
     """
-    Delete an item from the pantry based on its ID for a specific user.
+    Mark an item as inactive in the pantry based on its ID for a specific user.
     """
-    items = read_pantry_items(user.id)
-    for i, item in enumerate(items):
-        if item["id"] == item_id:
-            del items[i]
-            write_pantry_items(user.id, items)
-            return {"message": "Item deleted"}
-    raise HTTPException(status_code=404, detail="Item not found")
+    try:
+        soft_delete_pantry_item(user.id, item_id)
+        return {"message": "Item marked as inactive"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete pantry item: {str(e)}")
 
 @pantry_router.get("/roi/metrics")
 def get_roi_metrics(user: User = Depends(get_user)) -> dict:

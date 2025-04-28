@@ -1,8 +1,14 @@
-FROM python:3.12-slim
+FROM public.ecr.aws/lambda/python:3.12
 
-COPY requirements.txt ./requirements.txt
-RUN pip install -r ./requirements.txt
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
 COPY . .
 
-CMD ["uvicorn", "api:app", "--reload", "--host", "0.0.0.0"]
+# Ensure .env file is included
+COPY .env .env
+
+# Set the CMD to your Lambda handler
+CMD ["api.lambda_handler"]

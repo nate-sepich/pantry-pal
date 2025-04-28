@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: PantryPal API with single table DynamoDB design
+
+Globals:
+  Function:
+    Timeout: 35
+    MemorySize: 256
+
+Resources:
+
+  PantryPalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref PantryPalFunctionImage
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PantryPalTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuthTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./
+
+  PantryPalTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PantryPal
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  AuthTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AuthTable
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST

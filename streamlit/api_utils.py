@@ -132,3 +132,50 @@ def get_autocomplete_suggestions(query):
     except requests.RequestException as e:
         logging.error(f"Error fetching autocomplete suggestions: {e}")
         return []
+
+def get_openai_meal_recommendation(user_id, token):
+    """Get OpenAI-powered recommendations for the user."""
+    logging.info(f"Fetching OpenAI meal recommendation for user ID: {user_id}")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.get(f"{API_URL}/openai/meal_recommendation", headers=headers, params={"user_id": user_id})
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Error fetching OpenAI meal recommendation: {e}")
+        st.error(f"Error fetching OpenAI meal recommendation: {e}")
+        return []
+
+def get_openai_meal_suggestions(user_id, daily_macro_goals, token):
+    """Get OpenAI-powered meal suggestions based on daily macro goals."""
+    logging.info(f"Fetching OpenAI meal suggestions for user ID: {user_id} with goals: {daily_macro_goals}")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.post(
+            f"{API_URL}/openai/meal_suggestions?user_id={user_id}",
+            headers=headers,
+            json=daily_macro_goals
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Error fetching OpenAI meal suggestions: {e}")
+        st.error(f"Error fetching OpenAI meal suggestions: {e}")
+        return []
+
+def openai_chat(prompt, token):
+    """Send a prompt to the OpenAI chat API endpoint and return the response."""
+    logging.info(f"Sending prompt to OpenAI chat API")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.post(
+            f"{API_URL}/openai/llm_chat", 
+            headers=headers,
+            json={"prompt": prompt}
+        )
+        response.raise_for_status()
+        response_data = response.json()
+        return response_data.get('response', 'No response from OpenAI')
+    except Exception as e:
+        logging.error(f"Error communicating with the OpenAI chat API: {e}")
+        return f"Error communicating with the OpenAI chat API: {str(e)}"
