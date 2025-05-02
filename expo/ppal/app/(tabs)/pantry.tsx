@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Modal } from 'react-native';
+import { SafeAreaView, ScrollView, View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import apiClient, { logout } from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
@@ -122,153 +122,165 @@ export default function PantryScreen() {
   };
 
   if (loading) {
-    return <ActivityIndicator style={styles.centered} size="large" />;
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <ActivityIndicator style={styles.centered} size="large" />
+        </ScrollView>
+      </SafeAreaView>
+    );
   }
 
   if (!userToken) {
     console.log('Redirecting to login screen...');
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Sign In</Text>
-        <TextInput
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.button} onPress={() => signIn(username, password)}>
-          <Text style={styles.buttonText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View style={styles.container}>
+            <Text style={styles.title}>Sign In</Text>
+            <TextInput
+              placeholder="Username"
+              value={username}
+              onChangeText={setUsername}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              style={styles.input}
+            />
+            <TouchableOpacity style={styles.button} onPress={() => signIn(username, password)}>
+              <Text style={styles.buttonText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Pantry</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>My Pantry</Text>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+        {pantryItems.length === 0 ? (
+          <Text style={styles.emptyText}>Your pantry is empty. Add some items!</Text>
+        ) : (
+          <FlatList
+            data={pantryItems}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.item}>
+                <TouchableOpacity
+                  onPress={() => toggleSelect(item.id)}
+                  style={[
+                    styles.itemDetails,
+                    selectedItems.includes(item.id) && styles.selectedItem,
+                  ]}
+                >
+                  <Text style={styles.itemText}>{item.product_name} ({item.quantity})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => showItemDetails(item)}
+                  style={styles.infoButton}
+                >
+                  <Text style={styles.infoButtonText}>i</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteItem(item.id)}
+                  style={styles.deleteButton}
+                >
+                  <MaterialIcons name="delete" size={24} color="#ff4d4d" />
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+        )}
+
+        <View style={styles.addContainer}>
+          <TextInput
+            placeholder="Item name"
+            value={itemName}
+            onChangeText={setItemName}
+            style={styles.input}
+          />
+          <TextInput
+            placeholder="Quantity"
+            value={itemQuantity}
+            onChangeText={setItemQuantity}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <TouchableOpacity style={styles.button} onPress={() => {
+            console.log('Add Item button pressed');
+            handleAddItem();
+          }}>
+            <Text style={styles.buttonText}>Add Item</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Picker
+          selectedValue={recipeType}
+          onValueChange={setRecipeType}
+          style={styles.picker}
+        >
+          <Picker.Item label="Breakfast" value="Breakfast" />
+          <Picker.Item label="Lunch" value="Lunch" />
+          <Picker.Item label="Dinner" value="Dinner" />
+          <Picker.Item label="Snack" value="Snack" />
+          <Picker.Item label="Dessert" value="Dessert" />
+        </Picker>
+
+        <TouchableOpacity style={styles.button} onPress={handleGenerate}>
+          <Text style={styles.buttonText}>Generate Recipe</Text>
         </TouchableOpacity>
-      </View>
-      {pantryItems.length === 0 ? (
-        <Text style={styles.emptyText}>Your pantry is empty. Add some items!</Text>
-      ) : (
-        <FlatList
-          data={pantryItems}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.item}>
+
+        {recipe ? (
+          <View style={styles.recipeContainer}>
+            <Text style={styles.recipeText}>{recipe}</Text>
+          </View>
+        ) : null}
+
+        {/* Modal for item details */}
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {selectedItemDetails ? (
+                <>
+                  <Text style={styles.modalTitle}>{selectedItemDetails.product_name}</Text>
+                  <Text>Quantity: {selectedItemDetails.quantity}</Text>
+                  <Text>Calories: {selectedItemDetails.macros.calories}</Text>
+                  <Text>Protein: {selectedItemDetails.macros.protein}g</Text>
+                  <Text>Carbs: {selectedItemDetails.macros.carbohydrates}g</Text>
+                  <Text>Fat: {selectedItemDetails.macros.fat}g</Text>
+                  <Text>Sodium: {selectedItemDetails.macros.sodium}mg</Text>
+                  <Text>Iron: {selectedItemDetails.macros.iron}mg</Text>
+                </>
+              ) : (
+                <Text>Loading...</Text>
+              )}
               <TouchableOpacity
-                onPress={() => toggleSelect(item.id)}
-                style={[
-                  styles.itemDetails,
-                  selectedItems.includes(item.id) && styles.selectedItem,
-                ]}
+                style={styles.button}
+                onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.itemText}>{item.product_name} ({item.quantity})</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => showItemDetails(item)}
-                style={styles.infoButton}
-              >
-                <Text style={styles.infoButtonText}>i</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleDeleteItem(item.id)}
-                style={styles.deleteButton}
-              >
-                <MaterialIcons name="delete" size={24} color="#ff4d4d" />
+                <Text style={styles.buttonText}>Close</Text>
               </TouchableOpacity>
             </View>
-          )}
-        />
-      )}
-
-      <View style={styles.addContainer}>
-        <TextInput
-          placeholder="Item name"
-          value={itemName}
-          onChangeText={setItemName}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Quantity"
-          value={itemQuantity}
-          onChangeText={setItemQuantity}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.button} onPress={() => {
-          console.log('Add Item button pressed');
-          handleAddItem();
-        }}>
-          <Text style={styles.buttonText}>Add Item</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Picker
-        selectedValue={recipeType}
-        onValueChange={setRecipeType}
-        style={styles.picker}
-      >
-        <Picker.Item label="Breakfast" value="Breakfast" />
-        <Picker.Item label="Lunch" value="Lunch" />
-        <Picker.Item label="Dinner" value="Dinner" />
-        <Picker.Item label="Snack" value="Snack" />
-        <Picker.Item label="Dessert" value="Dessert" />
-      </Picker>
-
-      <TouchableOpacity style={styles.button} onPress={handleGenerate}>
-        <Text style={styles.buttonText}>Generate Recipe</Text>
-      </TouchableOpacity>
-
-      {recipe ? (
-        <View style={styles.recipeContainer}>
-          <Text style={styles.recipeText}>{recipe}</Text>
-        </View>
-      ) : null}
-
-      {/* Modal for item details */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            {selectedItemDetails ? (
-              <>
-                <Text style={styles.modalTitle}>{selectedItemDetails.product_name}</Text>
-                <Text>Quantity: {selectedItemDetails.quantity}</Text>
-                <Text>Calories: {selectedItemDetails.macros.calories}</Text>
-                <Text>Protein: {selectedItemDetails.macros.protein}g</Text>
-                <Text>Carbs: {selectedItemDetails.macros.carbohydrates}g</Text>
-                <Text>Fat: {selectedItemDetails.macros.fat}g</Text>
-                <Text>Sodium: {selectedItemDetails.macros.sodium}mg</Text>
-                <Text>Iron: {selectedItemDetails.macros.iron}mg</Text>
-              </>
-            ) : (
-              <Text>Loading...</Text>
-            )}
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.buttonText}>Close</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
