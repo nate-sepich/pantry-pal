@@ -127,6 +127,8 @@ Use the platform script at the repo root to install dependencies for both API an
 setup.bat
 ```
 
+An example environment file is provided at `api/.env.example`.
+
 After running the script, copy and configure your environment variables:
 ```bash
 cp api/.env.example api/.env  # or create api/.env

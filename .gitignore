@@ -6,6 +6,7 @@ __pycache__*
 
 # Ignore environment variable files
 *.env*
+!api/.env.example
 
 # Ignore database dumps
 *database.json*

@@ -29,6 +29,8 @@ uvicorn app:app --reload --port 8000
 Key environment variables expected by the API include:
 `PANTRY_TABLE_NAME`, `AUTH_TABLE_NAME`, `USDA_API_KEY`, `OPENAI_API_KEY`,
 `SECRET_KEY`, `MACRO_QUEUE_URL`, and `IMAGE_QUEUE_URL`.
+Use the example file at `api/.env.example` as a starting point and copy it to
+`api/.env` when configuring your environment.
 
 ## Working with the Frontend
 
