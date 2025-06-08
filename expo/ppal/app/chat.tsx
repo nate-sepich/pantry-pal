@@ -135,7 +135,7 @@ export default function ChatScreen() {
           setId(existing.id);
           setContext(existing.context || []);
           if (existing.messages.length === 1 && existing.messages[0].role === 'system') {
-            await regenerateChat(existing.context || []);
+            await regenerateChat(existing.context || [], existing.id);
           }
         }
       } else if (recipe) {
@@ -164,7 +164,9 @@ export default function ChatScreen() {
     init();
   }, [chatId, recipe]);
 
-  const regenerateChat = async (items: any[]) => {
+  const regenerateChat = async (items: any[], chatIdOverride?: string) => {
+    const currentId = chatIdOverride || id;
+    if (!currentId) return;
     const prompt = buildSystemPrompt(items);
     const sysMsg: ChatMessage = { role: 'system', content: prompt };
     const userMsg: ChatMessage = { role: 'user', content: 'Generate a recipe using the provided items.' };
@@ -175,7 +177,7 @@ export default function ChatScreen() {
     const newMsgs = [sysMsg, assistant];
     setMessages(newMsgs);
     setContext(items);
-    const updated: Chat = { id, title: parsed.title || 'Recipe', messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
+    const updated: Chat = { id: currentId, title: parsed.title || 'Recipe', messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
     setTitle(updated.title);
     await upsertChat(updated);
     await apiClient.put(`/chats/${updated.id}`, updated);
