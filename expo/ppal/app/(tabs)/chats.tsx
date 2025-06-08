@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Chat } from '../src/types/Chat';
-import { loadChats } from '../src/utils/chatStore';
+import { Chat } from '../../src/types/Chat';
+import { loadChats } from '../../src/utils/chatStore';
 
 export default function ChatsTab() {
   const router = useRouter();
