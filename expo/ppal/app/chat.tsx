@@ -7,6 +7,45 @@ import apiClient from '../src/api/client';
 import { ChatMessage, Chat } from '../src/types/Chat';
 import { getChat, upsertChat } from '../src/utils/chatStore';
 
+function formatRecipeMarkdown(recipe: any): string {
+  let out = `# ${recipe.title || 'Recipe'}\n\n`;
+
+  if (Array.isArray(recipe.ingredients)) {
+    out += '## Ingredients\n';
+    for (const ing of recipe.ingredients) {
+      if (typeof ing === 'string') {
+        out += `- ${ing}\n`;
+      } else if (ing.name && ing.quantity) {
+        out += `- ${ing.name}: ${ing.quantity}\n`;
+      } else if (ing.item && ing.qty) {
+        out += `- ${ing.item}: ${ing.qty}\n`;
+      } else {
+        out += `- ${JSON.stringify(ing)}\n`;
+      }
+    }
+    out += '\n';
+  }
+
+  if (Array.isArray(recipe.steps)) {
+    out += '## Steps\n';
+    recipe.steps.forEach((step: string, idx: number) => {
+      out += `${idx + 1}. ${step}\n`;
+    });
+    out += '\n';
+  } else if (recipe.steps) {
+    out += `## Steps\n${recipe.steps}\n`;
+  }
+
+  if (recipe.total_macros) {
+    out += '## Total Macros\n';
+    for (const [k, v] of Object.entries(recipe.total_macros)) {
+      out += `- ${k}: ${v}\n`;
+    }
+  }
+
+  return out;
+}
+
 export default function ChatScreen() {
   const router = useRouter();
   const { recipe, chatId } = useLocalSearchParams<{ recipe?: string; chatId?: string }>();
@@ -20,7 +59,7 @@ export default function ChatScreen() {
       if (recipe) {
         try {
           const obj = JSON.parse(recipe as string);
-          const initial: ChatMessage = { role: 'assistant', content: '```json\n' + JSON.stringify(obj, null, 2) + '\n```' };
+          const initial: ChatMessage = { role: 'assistant', content: formatRecipeMarkdown(obj) };
           const newId = Math.random().toString(36).slice(2);
           const newChat: Chat = { id: newId, title: obj.title || 'Recipe', messages: [initial], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
