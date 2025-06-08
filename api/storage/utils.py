@@ -170,6 +170,38 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
         raise
 
 
+# ─── Chat Metadata CRUD ───────────────────────────────────────────────────────
+
+from models.models import ChatMeta
+
+
+def read_chat_meta(user_id: str) -> list[ChatMeta]:
+    """Return chat metadata entries for a user sorted by updatedAt desc."""
+    pk = f"USER#{user_id}"
+    try:
+        resp = pantry_table.query(
+            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("CHAT#")
+        )
+        items = [ChatMeta(**raw) for raw in resp.get("Items", [])]
+        items.sort(key=lambda x: x.updatedAt, reverse=True)
+        return items
+    except ClientError as e:
+        logging.error("Error querying chats: %s", e.response["Error"]["Message"])
+        raise
+
+
+def upsert_chat_meta(user_id: str, chat: ChatMeta) -> None:
+    """Insert or update a chat metadata record."""
+    pk = f"USER#{user_id}"
+    try:
+        pantry_table.put_item(
+            Item={"PK": pk, "SK": f"CHAT#{chat.id}", **chat.dict()}
+        )
+    except ClientError as e:
+        logging.error("Error writing chat meta: %s", e.response["Error"]["Message"])
+        raise
+
+
 # ─── Auth CRUD ───────────────────────────────────────────────────────────────────
 
 def read_users() -> list[User]:

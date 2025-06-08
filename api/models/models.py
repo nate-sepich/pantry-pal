@@ -6,8 +6,13 @@ from decimal import Decimal
 class UPCResponseModel(BaseModel):
     fdc_id: str
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
 class LLMChatRequest(BaseModel):
-    prompt: str
+    messages: List[ChatMessage]
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -133,3 +138,26 @@ class Recipe(BaseModel):
             )
         
         return total_macros
+
+
+class RecipeModifiers(BaseModel):
+    servings: Optional[int] = None
+    flavorAdjustments: Optional[List[str]] = None
+    removeItems: Optional[List[str]] = None
+    overrides: Optional[List[str]] = None
+
+
+class RecipeRequest(BaseModel):
+    itemIds: List[str]
+    modifiers: Optional[RecipeModifiers] = None
+
+
+class RecipeResponse(BaseModel):
+    recipe: dict
+
+
+class ChatMeta(BaseModel):
+    id: str
+    title: str
+    updatedAt: str
+    length: int

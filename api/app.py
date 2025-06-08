@@ -11,6 +11,7 @@ from ai.openai_service import enrich_image_job  # helper for image hydration
 from macros.macro_service import macro_router, enrich_item, enrich_recipe
 from auth.auth_service import auth_router
 from ai.openai_service import openai_router
+from chat.chat_service import chat_router
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,6 +34,7 @@ app.include_router(pantry_router, tags=["Pantry"])
 app.include_router(macro_router, tags=["Macros"])
 app.include_router(auth_router, tags=["Auth"])
 app.include_router(openai_router, tags=["OpenAI"])
+app.include_router(chat_router, tags=["Chats"])
 
 # Add new routes
 app.add_api_route("/roi/metrics", get_roi_metrics, methods=["GET"], tags=["ROI"])
