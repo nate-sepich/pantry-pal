@@ -92,7 +92,10 @@ export default function PantryScreen() {
   };
 
   const buildSystemPrompt = (items: InventoryItem[]): string => {
-    const lines = ['You are PantryPal, an AI culinary assistant.', 'The user has selected:'];
+    const lines = [
+      'You are PantryPal, an AI culinary assistant.',
+      'The user has selected:'
+    ];
     for (const it of items) {
       let macro = '';
       if (it.macros) {
@@ -114,13 +117,20 @@ export default function PantryScreen() {
       for (const note of overrides) lines.push(`- ${note}`);
     }
     lines.push('Provide recipes and suggestions based on these ingredients.');
+    lines.push(
+      'When replying, return JSON with keys: title, ingredients, steps, total_macros.'
+    );
     return lines.join('\n');
   };
 
   const handleGenerate = async () => {
     const selected = pantryItems.filter(p => selectedItems.includes(p.id));
     const prompt = buildSystemPrompt(selected);
-    router.push({ pathname: '/chat', params: { system: encodeURIComponent(prompt) } });
+    const ctx = encodeURIComponent(JSON.stringify(selected));
+    router.push({
+      pathname: '/chat',
+      params: { system: encodeURIComponent(prompt), ctx }
+    });
   };
 
   const toggleSelect = (id: string) => {

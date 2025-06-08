@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
-import { Appbar, Button } from 'react-native-paper';
+import { Appbar, Button, List } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import apiClient from '../src/api/client';
@@ -48,18 +48,34 @@ function formatRecipeMarkdown(recipe: any): string {
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { recipe, chatId, system } = useLocalSearchParams<{ recipe?: string; chatId?: string; system?: string }>();
+  const { recipe, chatId, system, ctx } = useLocalSearchParams<{ recipe?: string; chatId?: string; system?: string; ctx?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [title, setTitle] = useState('Chat');
   const [id, setId] = useState<string>('');
+  const [context, setContext] = useState<any[]>([]);
+  const [showCtx, setShowCtx] = useState(false);
   const [input, setInput] = useState('');
 
   useEffect(() => {
     const init = async () => {
       if (system) {
-        const initial: ChatMessage = { role: 'system', content: system as string };
+        if (ctx) {
+          try {
+            setContext(JSON.parse(ctx as string));
+          } catch {}
+        }
+        const sysMsg: ChatMessage = { role: 'system', content: system as string };
+        const userMsg: ChatMessage = {
+          role: 'user',
+          content: 'Generate a recipe using the provided items.'
+        };
         const newId = Math.random().toString(36).slice(2);
-        const newChat: Chat = { id: newId, title: 'New Chat', messages: [initial], updatedAt: new Date().toISOString() };
+        const res = await apiClient.post('/openai/llm_chat', { messages: [sysMsg, userMsg] });
+        const reply = res.data.response || '';
+        let display = reply;
+        try { display = formatRecipeMarkdown(JSON.parse(reply)); } catch {}
+        const assistant: ChatMessage = { role: 'assistant', content: display };
+        const newChat: Chat = { id: newId, title: 'New Chat', messages: [sysMsg, assistant], updatedAt: new Date().toISOString() };
         await upsertChat(newChat);
         await apiClient.post('/chats', {
           id: newId,
@@ -111,7 +127,7 @@ export default function ChatScreen() {
       }
     };
     init();
-  }, [system, recipe, chatId]);
+  }, [system, recipe, chatId, ctx]);
 
   const send = async () => {
     if (!input.trim()) return;
@@ -121,8 +137,9 @@ export default function ChatScreen() {
     setInput('');
     try {
       const res = await apiClient.post('/openai/llm_chat', { messages: newMsgs });
-      const reply = res.data.response || '';
-      const finalMsgs = [...newMsgs, { role: 'assistant', content: reply } as ChatMessage];
+        let text = res.data.response || '';
+        try { text = formatRecipeMarkdown(JSON.parse(text)); } catch {}
+        const finalMsgs = [...newMsgs, { role: 'assistant', content: text } as ChatMessage];
       setMessages(finalMsgs);
       const updated: Chat = { id, title, messages: finalMsgs, updatedAt: new Date().toISOString() };
       await upsertChat(updated);
@@ -144,8 +161,22 @@ export default function ChatScreen() {
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title={title} />
       </Appbar.Header>
+      {context.length > 0 && (
+        <List.Accordion
+          title="Selected Items"
+          expanded={showCtx}
+          onPress={() => setShowCtx(!showCtx)}
+        >
+          {context.map((it, idx) => (
+            <List.Item
+              key={idx}
+              title={`${it.product_name}${it.quantity ? ` x${it.quantity}` : ''}`}
+            />
+          ))}
+        </List.Accordion>
+      )}
       <FlatList
-        data={messages}
+        data={messages.filter(m => m.role !== 'system')}
         keyExtractor={(_, idx) => idx.toString()}
         renderItem={({ item }) => (
           <View style={item.role === 'user' ? styles.userBubble : styles.botBubble}>
