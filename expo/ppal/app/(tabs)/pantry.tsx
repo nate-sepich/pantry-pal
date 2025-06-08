@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView, Image } from 'react-native';
-import { TextInput as RNTextInput } from 'react-native';
+import { Card, Button, TextInput as PaperTextInput, FAB } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
@@ -138,59 +138,59 @@ export default function PantryScreen() {
           </View>
         )}
         renderItem={({ item }) => (
-          <View style={[styles.card, { width: (width - 48) / 2 }]}> 
+          <Card style={[styles.card, { width: (width - 48) / 2 }]}>
             {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+              <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
             ) : (
               <View style={styles.cardPlaceholder}>
                 <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
               </View>
             )}
-            <View style={styles.cardBody}>
+            <Card.Content style={styles.cardBody}>
               <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
               <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
-              <View style={styles.cardActions}>
-                <TouchableOpacity onPress={() => showItemDetails(item)}>
-                  <MaterialIcons name="info-outline" size={20} color="#0a7ea4" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeleteItem(item.id)}>
-                  <MaterialIcons name="delete" size={20} color="#ff4d4d" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+            </Card.Content>
+            <Card.Actions style={styles.cardActions}>
+              <Button onPress={() => showItemDetails(item)}>Info</Button>
+              <Button textColor="#ff4d4d" onPress={() => handleDeleteItem(item.id)}>Delete</Button>
+            </Card.Actions>
+          </Card>
         )}
       />
 
       {/* Floating Add Button */}
-      <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
-        <MaterialIcons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => setAddModalVisible(true)}
+      />
 
       {/* Add Item Modal */}
       <Modal visible={addModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.addSheet}>
             <Text style={styles.addTitle}>Add Item</Text>
-            <RNTextInput
+            <PaperTextInput
               style={styles.addInput}
+              mode="outlined"
               placeholder="Item name"
               value={itemName}
               onChangeText={setItemName}
             />
-            <RNTextInput
+            <PaperTextInput
               style={styles.addInput}
+              mode="outlined"
               placeholder="Quantity"
               keyboardType="numeric"
               value={itemQuantity}
               onChangeText={setItemQuantity}
             />
-            <TouchableOpacity style={styles.addButton} onPress={() => { handleAddItem(); setAddModalVisible(false); }}>
-              <Text style={styles.addButtonText}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.addCancel} onPress={() => setAddModalVisible(false)}>
-              <Text style={styles.addCancelText}>Cancel</Text>
-            </TouchableOpacity>
+            <Button mode="contained" style={styles.addButton} onPress={() => { handleAddItem(); setAddModalVisible(false); }}>
+              Save
+            </Button>
+            <Button mode="text" onPress={() => setAddModalVisible(false)}>
+              Cancel
+            </Button>
           </View>
         </View>
       </Modal>
@@ -218,12 +218,9 @@ export default function PantryScreen() {
             ) : (
               <Text>Loading...</Text>
             )}
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.buttonText}>Close</Text>
-            </TouchableOpacity>
+            <Button mode="contained" onPress={() => setModalVisible(false)}>
+              Close
+            </Button>
           </View>
         </View>
       </Modal>
@@ -259,10 +256,7 @@ const styles = StyleSheet.create({
   addSheet: { backgroundColor:'#fff', padding:16, borderTopLeftRadius:12, borderTopRightRadius:12 },
   addTitle: { fontSize:20, fontWeight:'bold', marginBottom:12 },
   addInput: { borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, marginBottom:12 },
-  addButton: { backgroundColor:'#0a7ea4', padding:14, borderRadius:8, alignItems:'center', marginBottom:8 },
-  addButtonText: { color:'#fff', fontSize:16, fontWeight:'600' },
-  addCancel: { alignItems:'center', padding:12 },
-  addCancelText: { fontSize:16, color:'#0a7ea4' },
+  addButton: { marginBottom:8 },
   fab: {
     position: 'absolute',
     bottom: 32,
@@ -280,26 +274,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  button: { backgroundColor: '#0a7ea4', padding: 12, borderRadius: 8, alignItems: 'center', marginVertical: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   recipeContainer: { marginTop: 16, padding: 16, backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   recipeText: { fontSize: 16, lineHeight: 24 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
   modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 12, alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
-  selectButton: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f0f0f0', marginLeft: 8 },
-  selectedButton: { backgroundColor: '#d0f0c0', borderColor: '#a0d090' },
-  selectButtonText: { fontSize: 14, color: '#333' },
-  infoButton: { backgroundColor: '#0a7ea4', padding: 8, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
-  infoButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  deleteButton: {
-     marginLeft: 8,
-     justifyContent: 'center',
-     alignItems: 'center',
-   },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 16 },
-  quantityBadge: { backgroundColor: '#0a7ea4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 12 },
-  badgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  itemImage: { width: 40, height: 40, borderRadius: 20, marginHorizontal: 8 },
-  imageButton: { padding: 4, marginHorizontal: 4 },
 });
