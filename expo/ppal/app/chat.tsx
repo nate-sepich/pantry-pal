@@ -162,7 +162,6 @@ export default function ChatScreen() {
           setTitle(newChat.title);
           setId(newId);
         }
-        }
       }
     };
     init();
