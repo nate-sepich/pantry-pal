@@ -1,3 +1,5 @@
+import os
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_service import get_user_id_from_token
 from storage.utils import (
@@ -7,7 +9,14 @@ from storage.utils import (
     read_pantry_items,
 )
 from ai.openai_service import build_recipe_prompt, call_openai
-import json
+
+# Load sample recipes for offline demos
+SAMPLE_FILE = os.path.join(os.path.dirname(__file__), "example", "recipes.json")
+if os.path.exists(SAMPLE_FILE):
+    with open(SAMPLE_FILE) as fh:
+        SAMPLE_RECIPES = json.load(fh)
+else:
+    SAMPLE_RECIPES = []
 
 recipes_router = APIRouter(prefix="/recipes")
 
@@ -30,5 +39,7 @@ def get_recommendations(user_id: str = Depends(get_user_id_from_token)):
         suggestions = json.loads(raw)
     except Exception:
         suggestions = []
+    if not suggestions:
+        suggestions = SAMPLE_RECIPES
     liked = [r.recipe_id for r in read_liked_recipes(user_id)]
     return {"liked": liked, "recommendations": suggestions}
