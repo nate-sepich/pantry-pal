@@ -131,7 +131,9 @@ export default function PantryScreen() {
     const prompt = buildSystemPrompt(selected);
     const sysMsg: ChatMessage = { role: 'system', content: prompt };
     const newId = Math.random().toString(36).slice(2);
-    const chat: Chat = { id: newId, title: 'New Chat', messages: [sysMsg], context: selected, updatedAt: new Date().toISOString() };
+    const itemNames = selected.map(i => i.product_name).join(', ');
+    const chatTitle = itemNames || 'New Chat';
+    const chat: Chat = { id: newId, title: chatTitle, messages: [sysMsg], context: selected, updatedAt: new Date().toISOString() };
     await upsertChat(chat);
     await apiClient.put(`/chats/${newId}`, chat);
     router.push({ pathname: '/chat', params: { chatId: newId } });

@@ -177,8 +177,7 @@ export default function ChatScreen() {
     const newMsgs = [sysMsg, assistant];
     setMessages(newMsgs);
     setContext(items);
-    const updated: Chat = { id: currentId, title: parsed.title || 'Recipe', messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
-    setTitle(updated.title);
+    const updated: Chat = { id: currentId, title, messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
     await upsertChat(updated);
     await apiClient.put(`/chats/${updated.id}`, updated);
   };
@@ -254,8 +253,7 @@ export default function ChatScreen() {
       const parsed = parseRecipeText(raw);
       const finalMsgs = [...newMsgs, { role: 'assistant', content: parsed.markdown } as ChatMessage];
       setMessages(finalMsgs);
-      const updated: Chat = { id, title: parsed.title || title, messages: finalMsgs, context, updatedAt: new Date().toISOString() };
-      if (parsed.title) setTitle(parsed.title);
+      const updated: Chat = { id, title, messages: finalMsgs, context, updatedAt: new Date().toISOString() };
       await upsertChat(updated);
       await apiClient.put(`/chats/${updated.id}`, updated);
     } catch (e: any) {
