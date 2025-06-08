@@ -24,6 +24,12 @@ export default function ChatScreen() {
           const newId = Math.random().toString(36).slice(2);
           const newChat: Chat = { id: newId, title: obj.title || 'Recipe', messages: [initial], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
+          await apiClient.post('/chats', {
+            id: newId,
+            title: newChat.title,
+            updatedAt: newChat.updatedAt,
+            length: newChat.messages.length,
+          });
           setMessages(newChat.messages);
           setTitle(newChat.title);
           setId(newId);
@@ -32,6 +38,12 @@ export default function ChatScreen() {
           const newId = Math.random().toString(36).slice(2);
           const newChat: Chat = { id: newId, title: 'Recipe', messages: [initial], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
+          await apiClient.post('/chats', {
+            id: newId,
+            title: newChat.title,
+            updatedAt: newChat.updatedAt,
+            length: newChat.messages.length,
+          });
           setMessages(newChat.messages);
           setTitle(newChat.title);
           setId(newId);
@@ -61,6 +73,12 @@ export default function ChatScreen() {
       setMessages(finalMsgs);
       const updated: Chat = { id, title, messages: finalMsgs, updatedAt: new Date().toISOString() };
       await upsertChat(updated);
+      await apiClient.post('/chats', {
+        id: updated.id,
+        title: updated.title,
+        updatedAt: updated.updatedAt,
+        length: updated.messages.length,
+      });
     } catch (e: any) {
       const errMsgs = [...newMsgs, { role: 'assistant', content: 'Error: ' + String(e) } as ChatMessage];
       setMessages(errMsgs);

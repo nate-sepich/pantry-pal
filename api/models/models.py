@@ -154,3 +154,10 @@ class RecipeRequest(BaseModel):
 
 class RecipeResponse(BaseModel):
     recipe: dict
+
+
+class ChatMeta(BaseModel):
+    id: str
+    title: str
+    updatedAt: str
+    length: int

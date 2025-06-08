@@ -8,4 +8,5 @@ export interface Chat {
   title: string;
   messages: ChatMessage[];
   updatedAt: string;
+  length?: number;
 }

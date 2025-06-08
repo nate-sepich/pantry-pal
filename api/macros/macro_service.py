@@ -44,9 +44,6 @@ async def fetch_food_details_async(fdc_id: int, format: str = 'full', nutrients:
     Asynchronous fetch of detailed food nutrient information using the FDC ID.
     Supports optional format (abridged/full) and nutrient filtering.
     """
-    if not USDA_API_KEY:
-        logging.warning("USDA_API_KEY not configured; skipping detail fetch")
-        return None
     detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
     params = {
         'api_key': USDA_API_KEY,
@@ -103,10 +100,7 @@ def search_food_item(item_name: str) -> Optional[int]:
     Search for food items using the USDA FoodData Central API.
     Returns the fdcId of the first result, or None if no result is found.
     """
-    if not USDA_API_KEY:
-        logging.warning("USDA_API_KEY not configured; skipping lookup")
-        return None
-    search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+    search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search"
     params = {
         'api_key': USDA_API_KEY,
         'query': item_name
@@ -168,9 +162,6 @@ def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
     First searches for the item, then fetches detailed nutrient information using the fdcId.
     Portion size is in grams by default.
     """
-    if not USDA_API_KEY:
-        logging.warning("USDA_API_KEY not configured; returning None")
-        return None
     fdc_id = search_food_item(item_name)
     
     if fdc_id:
