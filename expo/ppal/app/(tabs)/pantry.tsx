@@ -7,6 +7,8 @@ import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
 import { InventoryItem } from '../../src/types/InventoryItem';
+import { Chat, ChatMessage } from '../../src/types/Chat';
+import { upsertChat } from '../../src/utils/chatStore';
 
 
 export default function PantryScreen() {
@@ -127,11 +129,12 @@ export default function PantryScreen() {
   const handleGenerate = async () => {
     const selected = pantryItems.filter(p => selectedItems.includes(p.id));
     const prompt = buildSystemPrompt(selected);
-    const ctx = encodeURIComponent(JSON.stringify(selected));
-    router.push({
-      pathname: '/chat',
-      params: { system: encodeURIComponent(prompt), ctx }
-    });
+    const sysMsg: ChatMessage = { role: 'system', content: prompt };
+    const newId = Math.random().toString(36).slice(2);
+    const chat: Chat = { id: newId, title: 'New Chat', messages: [sysMsg], context: selected, updatedAt: new Date().toISOString() };
+    await upsertChat(chat);
+    await apiClient.post('/chats', { id: newId, title: chat.title, updatedAt: chat.updatedAt, length: chat.messages.length });
+    router.push({ pathname: '/chat', params: { chatId: newId } });
   };
 
   const toggleSelect = (id: string) => {

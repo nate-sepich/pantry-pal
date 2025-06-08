@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, Modal } from 'react-native';
+import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, Modal, Alert } from 'react-native';
 import { Appbar, Button, List, IconButton, ProgressBar, TextInput as PaperTextInput } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
@@ -46,6 +46,15 @@ function formatRecipeMarkdown(recipe: any): string {
   return out;
 }
 
+function parseRecipeText(text: string): { markdown: string; title?: string } {
+  try {
+    const obj = JSON.parse(text);
+    return { markdown: formatRecipeMarkdown(obj), title: obj.title };
+  } catch {
+    return { markdown: text };
+  }
+}
+
 function renderMacroBars(macros: any) {
   if (!macros) return null;
   const data = [
@@ -87,9 +96,18 @@ function buildSystemPrompt(items: any[]): string {
   return lines.join('\n');
 }
 
+async function fetchMacros(name: string) {
+  try {
+    const res = await apiClient.get('/macros/item', { params: { item_name: name } });
+    return res.data;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function ChatScreen() {
   const router = useRouter();
-  const { recipe, chatId, system, ctx } = useLocalSearchParams<{ recipe?: string; chatId?: string; system?: string; ctx?: string }>();
+  const { recipe, chatId } = useLocalSearchParams<{ recipe?: string; chatId?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [title, setTitle] = useState('Chat');
   const [id, setId] = useState<string>('');
@@ -102,40 +120,23 @@ export default function ChatScreen() {
 
   useEffect(() => {
     const init = async () => {
-      if (system) {
-        if (ctx) {
-          try {
-            setContext(JSON.parse(ctx as string));
-          } catch {}
+      if (chatId) {
+        const existing = await getChat(chatId as string);
+        if (existing) {
+          setMessages(existing.messages);
+          setTitle(existing.title);
+          setId(existing.id);
+          setContext(existing.context || []);
+          if (existing.messages.length === 1 && existing.messages[0].role === 'system') {
+            await regenerateChat(existing.context || []);
+          }
         }
-        const sysMsg: ChatMessage = { role: 'system', content: system as string };
-        const userMsg: ChatMessage = {
-          role: 'user',
-          content: 'Generate a recipe using the provided items.'
-        };
-        const newId = Math.random().toString(36).slice(2);
-        const res = await apiClient.post('/openai/llm_chat', { messages: [sysMsg, userMsg] });
-        const reply = res.data.response || '';
-        let display = reply;
-        try { display = formatRecipeMarkdown(JSON.parse(reply)); } catch {}
-        const assistant: ChatMessage = { role: 'assistant', content: display };
-        const newChat: Chat = { id: newId, title: 'New Chat', messages: [sysMsg, assistant], updatedAt: new Date().toISOString() };
-        await upsertChat(newChat);
-        await apiClient.post('/chats', {
-          id: newId,
-          title: newChat.title,
-          updatedAt: newChat.updatedAt,
-          length: newChat.messages.length,
-        });
-        setMessages(newChat.messages);
-        setTitle(newChat.title);
-        setId(newId);
       } else if (recipe) {
         try {
           const obj = JSON.parse(recipe as string);
           const initial: ChatMessage = { role: 'assistant', content: formatRecipeMarkdown(obj) };
           const newId = Math.random().toString(36).slice(2);
-          const newChat: Chat = { id: newId, title: obj.title || 'Recipe', messages: [initial], updatedAt: new Date().toISOString() };
+          const newChat: Chat = { id: newId, title: obj.title || 'Recipe', messages: [initial], context: [], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
           await apiClient.post('/chats', {
             id: newId,
@@ -149,7 +150,7 @@ export default function ChatScreen() {
         } catch {
           const initial: ChatMessage = { role: 'assistant', content: recipe as string };
           const newId = Math.random().toString(36).slice(2);
-          const newChat: Chat = { id: newId, title: 'Recipe', messages: [initial], updatedAt: new Date().toISOString() };
+          const newChat: Chat = { id: newId, title: 'Recipe', messages: [initial], context: [], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
           await apiClient.post('/chats', {
             id: newId,
@@ -161,30 +162,24 @@ export default function ChatScreen() {
           setTitle(newChat.title);
           setId(newId);
         }
-      } else if (chatId) {
-        const existing = await getChat(chatId as string);
-        if (existing) {
-          setMessages(existing.messages);
-          setTitle(existing.title);
-          setId(existing.id);
         }
       }
     };
     init();
-  }, [system, recipe, chatId, ctx]);
+  }, [chatId, recipe]);
 
   const regenerateChat = async (items: any[]) => {
     const prompt = buildSystemPrompt(items);
     const sysMsg: ChatMessage = { role: 'system', content: prompt };
     const userMsg: ChatMessage = { role: 'user', content: 'Generate a recipe using the provided items.' };
     const res = await apiClient.post('/openai/llm_chat', { messages: [sysMsg, userMsg] });
-    let text = res.data.response || '';
-    try { text = formatRecipeMarkdown(JSON.parse(text)); } catch {}
-    const assistant: ChatMessage = { role: 'assistant', content: text };
+    const raw = res.data.response || '';
+    const parsed = parseRecipeText(raw);
+    const assistant: ChatMessage = { role: 'assistant', content: parsed.markdown };
     const newMsgs = [sysMsg, assistant];
     setMessages(newMsgs);
     setContext(items);
-    const updated: Chat = { id, title: 'New Chat', messages: newMsgs, updatedAt: new Date().toISOString() };
+    const updated: Chat = { id, title: parsed.title || 'Recipe', messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
     setTitle(updated.title);
     await upsertChat(updated);
     await apiClient.post('/chats', {
@@ -196,18 +191,62 @@ export default function ChatScreen() {
   };
 
   const removeItem = (index: number) => {
-    const items = context.filter((_, i) => i !== index);
-    regenerateChat(items);
+    Alert.alert('Remove Item', 'Also remove this from your pantry?', [
+      {
+        text: 'Exclude Only',
+        style: 'cancel',
+        onPress: () => {
+          const items = context.filter((_, i) => i !== index);
+          regenerateChat(items);
+        }
+      },
+      {
+        text: 'Remove from Pantry',
+        onPress: async () => {
+          const target = context[index];
+          if (target?.id) {
+            try { await apiClient.delete(`/pantry/items/${target.id}`); } catch {}
+          }
+          const items = context.filter((_, i) => i !== index);
+          regenerateChat(items);
+        }
+      }
+    ]);
   };
 
   const handleAddItem = () => {
     if (!newItemName.trim()) { setAddModalVisible(false); return; }
     const qty = Number(newItemQty) || 1;
-    const items = [...context, { product_name: newItemName.trim(), quantity: qty }];
-    setNewItemName('');
-    setNewItemQty('');
-    setAddModalVisible(false);
-    regenerateChat(items);
+    const name = newItemName.trim();
+    const finish = async (item: any) => {
+      if (!item.macros) {
+        item.macros = await fetchMacros(item.product_name);
+      }
+      const items = [...context, item];
+      setNewItemName('');
+      setNewItemQty('');
+      setAddModalVisible(false);
+      regenerateChat(items);
+    };
+    Alert.alert('Add to Pantry?', 'Add this item to your pantry as well?', [
+      {
+        text: 'Exclude from Pantry',
+        style: 'cancel',
+        onPress: () => finish({ product_name: name, quantity: qty })
+      },
+      {
+        text: 'Update Pantry',
+        onPress: async () => {
+          try {
+            const res = await apiClient.post('/pantry/items', { product_name: name, quantity: qty });
+            const item = res.data.item || res.data;
+            await finish(item);
+          } catch {
+            await finish({ product_name: name, quantity: qty });
+          }
+        }
+      }
+    ]);
   };
 
   const send = async () => {
@@ -218,11 +257,12 @@ export default function ChatScreen() {
     setInput('');
     try {
       const res = await apiClient.post('/openai/llm_chat', { messages: newMsgs });
-        let text = res.data.response || '';
-        try { text = formatRecipeMarkdown(JSON.parse(text)); } catch {}
-        const finalMsgs = [...newMsgs, { role: 'assistant', content: text } as ChatMessage];
+      const raw = res.data.response || '';
+      const parsed = parseRecipeText(raw);
+      const finalMsgs = [...newMsgs, { role: 'assistant', content: parsed.markdown } as ChatMessage];
       setMessages(finalMsgs);
-      const updated: Chat = { id, title, messages: finalMsgs, updatedAt: new Date().toISOString() };
+      const updated: Chat = { id, title: parsed.title || title, messages: finalMsgs, context, updatedAt: new Date().toISOString() };
+      if (parsed.title) setTitle(parsed.title);
       await upsertChat(updated);
       await apiClient.post('/chats', {
         id: updated.id,
