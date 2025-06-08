@@ -225,6 +225,17 @@ def upsert_chat(user_id: str, chat: Chat) -> None:
         raise
 
 
+def delete_chat(user_id: str, chat_id: str) -> None:
+    """Delete a chat and its metadata."""
+    pk = f"USER#{user_id}"
+    try:
+        pantry_table.delete_item(Key={"PK": pk, "SK": f"CHATMSG#{chat_id}"})
+        pantry_table.delete_item(Key={"PK": pk, "SK": f"CHAT#{chat_id}"})
+    except ClientError as e:
+        logging.error("Error deleting chat: %s", e.response["Error"]["Message"])
+        raise
+
+
 # ─── Auth CRUD ───────────────────────────────────────────────────────────────────
 
 def read_users() -> list[User]:

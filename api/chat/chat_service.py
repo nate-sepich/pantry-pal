@@ -6,6 +6,7 @@ from storage.utils import (
     upsert_chat_meta,
     read_chat,
     upsert_chat,
+    delete_chat,
 )
 
 chat_router = APIRouter(prefix="/chats")
@@ -34,4 +35,10 @@ def save_chat_detail(chat_id: str, chat: Chat, user_id: str = Depends(get_user_i
     upsert_chat(user_id, chat)
     meta = ChatMeta(id=chat.id, title=chat.title, updatedAt=chat.updatedAt, length=len(chat.messages))
     upsert_chat_meta(user_id, meta)
+    return None
+
+
+@chat_router.delete("/{chat_id}", status_code=204)
+def delete_chat_api(chat_id: str, user_id: str = Depends(get_user_id_from_token)):
+    delete_chat(user_id, chat_id)
     return None

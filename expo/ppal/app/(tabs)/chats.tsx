@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { IconButton } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Chat } from '../../src/types/Chat';
-import { loadChats, saveChats } from '../../src/utils/chatStore';
+import { loadChats, saveChats, removeChat } from '../../src/utils/chatStore';
 import apiClient from '../../src/api/client';
 
 export default function ChatsTab() {
@@ -42,6 +43,14 @@ export default function ChatsTab() {
     }, [refresh])
   );
 
+  const doDelete = async (id: string) => {
+    try {
+      await apiClient.delete(`/chats/${id}`);
+    } catch {}
+    await removeChat(id);
+    setChats(prev => prev.filter(c => c.id !== id));
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <FlatList
@@ -52,8 +61,11 @@ export default function ChatsTab() {
             style={styles.row}
             onPress={() => router.push({ pathname: '/chat', params: { chatId: item.id } })}
           >
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.date}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
+            <View style={styles.rowLeft}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.date}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
+            </View>
+            <IconButton icon="delete" onPress={() => doDelete(item.id)} />
           </TouchableOpacity>
         )}
       />
@@ -62,7 +74,15 @@ export default function ChatsTab() {
 }
 
 const styles = StyleSheet.create({
-  row: { padding: 16, borderBottomWidth: 1, borderColor: '#ddd' },
+  row: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rowLeft: { flex: 1 },
   title: { fontSize: 16, fontWeight: 'bold' },
   date: { fontSize: 12, color: '#666' },
 });

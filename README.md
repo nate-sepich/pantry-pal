@@ -171,6 +171,8 @@ Each chat record is saved under two keys:
 The frontend uses `/chats` to list metadata and `/chats/{id}` to fetch or update
 the full conversation. When a message is sent the updated chat is written back
 with a `PUT` request so that Dynamo always has the latest history.
+Chats can also be deleted using `DELETE /chats/{id}` which removes both the
+metadata and stored messages.
 
 ## Architecture Diagram
 

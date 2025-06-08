@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import apiClient from '../src/api/client';
 import { ChatMessage, Chat } from '../src/types/Chat';
-import { getChat, upsertChat } from '../src/utils/chatStore';
+import { getChat, upsertChat, removeChat } from '../src/utils/chatStore';
 
 function formatRecipeMarkdown(recipe: any): string {
   let out = `# ${recipe.title || 'Recipe'}\n\n`;
@@ -264,11 +264,29 @@ export default function ChatScreen() {
     }
   };
 
+  const deleteCurrent = async () => {
+    Alert.alert('Delete Chat', 'Are you sure you want to delete this chat?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/chats/${id}`);
+          } catch {}
+          await removeChat(id);
+          router.back();
+        }
+      }
+    ]);
+  };
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title={title} />
+        <Appbar.Action icon="delete" onPress={deleteCurrent} />
       </Appbar.Header>
       {context.length > 0 && (
         <List.Accordion

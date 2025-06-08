@@ -32,3 +32,9 @@ export async function getChat(id: string): Promise<Chat | undefined> {
   const chats = await loadChats();
   return chats.find(c => c.id === id);
 }
+
+export async function removeChat(id: string): Promise<void> {
+  const chats = await loadChats();
+  const filtered = chats.filter(c => c.id !== id);
+  await saveChats(filtered);
+}
