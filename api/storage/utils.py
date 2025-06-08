@@ -15,10 +15,21 @@ AUTH_TABLE_NAME   = os.getenv("AUTH_TABLE_NAME")
 if not PANTRY_TABLE_NAME or not AUTH_TABLE_NAME:
     raise ValueError("Both PANTRY_TABLE_NAME and AUTH_TABLE_NAME must be set")
 
-# DynamoDB tables
-dynamodb     = boto3.resource("dynamodb")
-pantry_table = dynamodb.Table(PANTRY_TABLE_NAME)
-auth_table   = dynamodb.Table(AUTH_TABLE_NAME)
+# DynamoDB tables - disable if using test table names
+if PANTRY_TABLE_NAME == "test" or AUTH_TABLE_NAME == "test":
+    dynamodb = None
+    pantry_table = None
+    auth_table = None
+else:
+    try:
+        dynamodb     = boto3.resource("dynamodb")
+        pantry_table = dynamodb.Table(PANTRY_TABLE_NAME)
+        auth_table   = dynamodb.Table(AUTH_TABLE_NAME)
+    except Exception as e:
+        logging.warning(f"DynamoDB unavailable: {e}")
+        dynamodb = None
+        pantry_table = None
+        auth_table = None
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -40,6 +51,8 @@ def convert_to_decimal(data):
 
 def read_pantry_items(user_id: str) -> list[InventoryItem]:
     """Fetch all pantry items for a given user_id."""
+    if pantry_table is None:
+        return []
     pk = f"USER#{user_id}"
     try:
         resp = pantry_table.query(
@@ -74,6 +87,8 @@ def read_pantry_items(user_id: str) -> list[InventoryItem]:
 
 def write_pantry_items(user_id: str, items: list[InventoryItem]) -> None:
     """Batch write a list of InventoryItem for a given user_id."""
+    if pantry_table is None:
+        return
     pk = f"USER#{user_id}"
     try:
         with pantry_table.batch_writer() as batch:
@@ -110,6 +125,8 @@ def write_pantry_items(user_id: str, items: list[InventoryItem]) -> None:
 
 def soft_delete_pantry_item(user_id: str, item_id: str) -> None:
     """Mark a pantry item as inactive instead of deleting it."""
+    if pantry_table is None:
+        return
     pk = f"USER#{user_id}"
     sk = f"PANTRY#{item_id}"
     try:
@@ -132,6 +149,8 @@ def soft_delete_pantry_item(user_id: str, item_id: str) -> None:
 
 def read_recipe_items(user_id: str) -> list[Recipe]:
     """Fetch all recipes for a given user_id."""
+    if pantry_table is None:
+        return []
     pk = f"USER#{user_id}"
     try:
         resp = pantry_table.query(
@@ -146,6 +165,8 @@ def read_recipe_items(user_id: str) -> list[Recipe]:
 
 def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
     """Batch write a list of Recipe for a given user_id."""
+    if pantry_table is None:
+        return
     pk = f"USER#{user_id}"
     try:
         with pantry_table.batch_writer() as batch:
@@ -174,6 +195,8 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
 
 def read_users() -> list[User]:
     """Scan all users from the auth table."""
+    if auth_table is None:
+        return []
     try:
         resp = auth_table.scan()
         return [User(**raw) for raw in resp.get("Items", [])]
@@ -184,6 +207,8 @@ def read_users() -> list[User]:
 
 def write_users(users: list[User]) -> None:
     """Batc write a list of User into the auth table."""
+    if auth_table is None:
+        return
     try:
         with auth_table.batch_writer() as batch:
             for usr in users:

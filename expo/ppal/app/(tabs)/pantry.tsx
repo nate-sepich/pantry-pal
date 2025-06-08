@@ -103,7 +103,8 @@ export default function PantryScreen() {
     };
     try {
       const res = await apiClient.post<RecipeResponse>('/openai/recipes/generate', payload);
-      console.log('Generated recipe:', res.data);
+      const recipeParam = encodeURIComponent(JSON.stringify(res.data.recipe));
+      router.push({ pathname: '/chats', params: { recipe: recipeParam } });
     } catch (e) {
       console.error('Recipe generation failed', e);
     }
