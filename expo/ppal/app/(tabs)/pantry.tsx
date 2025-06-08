@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView, Image } from 'react-native';
-import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar } from 'react-native-paper';
+import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
@@ -166,7 +166,12 @@ export default function PantryScreen() {
               <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
                 {expandedItemId === item.id ? 'Hide' : 'Info'}
               </Button>
-              <Button textColor="#0a7ea4" onPress={() => handleDeleteItem(item.id)}>Delete</Button>
+              <IconButton
+                icon="delete"
+                iconColor="#ff4d4d"
+                size={20}
+                onPress={() => handleDeleteItem(item.id)}
+             />
             </Card.Actions>
           </Card>
         )}
