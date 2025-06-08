@@ -48,7 +48,7 @@ function formatRecipeMarkdown(recipe: any): string {
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { recipe, chatId } = useLocalSearchParams<{ recipe?: string; chatId?: string }>();
+  const { recipe, chatId, system } = useLocalSearchParams<{ recipe?: string; chatId?: string; system?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [title, setTitle] = useState('Chat');
   const [id, setId] = useState<string>('');
@@ -56,7 +56,21 @@ export default function ChatScreen() {
 
   useEffect(() => {
     const init = async () => {
-      if (recipe) {
+      if (system) {
+        const initial: ChatMessage = { role: 'system', content: system as string };
+        const newId = Math.random().toString(36).slice(2);
+        const newChat: Chat = { id: newId, title: 'New Chat', messages: [initial], updatedAt: new Date().toISOString() };
+        await upsertChat(newChat);
+        await apiClient.post('/chats', {
+          id: newId,
+          title: newChat.title,
+          updatedAt: newChat.updatedAt,
+          length: newChat.messages.length,
+        });
+        setMessages(newChat.messages);
+        setTitle(newChat.title);
+        setId(newId);
+      } else if (recipe) {
         try {
           const obj = JSON.parse(recipe as string);
           const initial: ChatMessage = { role: 'assistant', content: formatRecipeMarkdown(obj) };
@@ -97,7 +111,7 @@ export default function ChatScreen() {
       }
     };
     init();
-  }, [recipe, chatId]);
+  }, [system, recipe, chatId]);
 
   const send = async () => {
     if (!input.trim()) return;
@@ -146,6 +160,7 @@ export default function ChatScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="Send a message"
+          onSubmitEditing={send}
         />
         <Button mode="contained" onPress={send} style={styles.sendButton}>Send</Button>
       </View>
