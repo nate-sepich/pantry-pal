@@ -6,11 +6,12 @@ import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add 
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
+import { InventoryItem } from '../../src/types/InventoryItem';
 
 export default function PantryScreen() {
   const { userToken, userId, loading, signOut } = useAuth();
   const router = useRouter();
-  const [pantryItems, setPantryItems] = useState<any[]>([]);
+  const [pantryItems, setPantryItems] = useState<InventoryItem[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [itemName, setItemName] = useState('');
@@ -31,12 +32,12 @@ export default function PantryScreen() {
 
   const fetchPantry = async () => {
     try {
-      const res = await apiClient.get('/pantry/items');
+      const res = await apiClient.get<InventoryItem[]>('/pantry/items');
       console.log('Fetched pantry items:', res.data);
       // Filter active items and map image_url to imageUrl
       const activeItems = res.data
-        .filter((item: any) => item.active)
-        .map((item: any) => ({
+        .filter((item: InventoryItem) => item.active)
+        .map((item: InventoryItem) => ({
           ...item,
           imageUrl: item.image_url || item.imageUrl || null,
         }));
@@ -88,7 +89,7 @@ export default function PantryScreen() {
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
-
+    
   const toggleExpandItem = (id: string) => {
     setExpandedItemId(prev => (prev === id ? null : id));
   };
