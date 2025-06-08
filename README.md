@@ -43,6 +43,12 @@ Enterprise-grade security features:
 ## Technical Overview
 
 PantryPal is a microservices-based AI-powered kitchen management system that demonstrates modern software architecture and AI integration patterns. The system combines inventory tracking with intelligent recipe generation through Ollama LLM integration.
+## Repository Layout
+- `api/` – FastAPI backend
+- `expo/ppal/` – Expo React Native frontend
+- `docs/` – diagrams and images
+- `setup.sh` – install dependencies
+- `AGENTS.md` – notes for Codex agents
 
 ## Technical Architecture
 
