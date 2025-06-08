@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView, Image } from 'react-native';
-import { Card, Button, TextInput as PaperTextInput, FAB } from 'react-native-paper';
+import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
@@ -15,8 +15,7 @@ export default function PantryScreen() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [itemName, setItemName] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
-  const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const { width } = Dimensions.get('window');
   // Images are auto-generated upon item creation via the API
 
@@ -90,17 +89,25 @@ export default function PantryScreen() {
     );
   };
 
-  const showItemDetails = (item: any) => {
-    const macros = item.macros || {
-      calories: 0,
-      protein: 0,
-      carbohydrates: 0,
-      fat: 0,
-      sodium: 0,
-      iron: 0,
-    };
-    setSelectedItemDetails({ ...item, macros });
-    setModalVisible(true);
+  const toggleExpandItem = (id: string) => {
+    setExpandedItemId(prev => (prev === id ? null : id));
+  };
+
+  const renderMacroBars = (macros: any) => {
+    if (!macros) return null;
+    const data = [
+      { label: 'Protein', value: Number(macros.protein || 0) },
+      { label: 'Carbs', value: Number(macros.carbohydrates || 0) },
+      { label: 'Fat', value: Number(macros.fat || 0) },
+      { label: 'Sugar', value: Number(macros.sugar || 0) },
+    ];
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    return data.map(d => (
+      <View key={d.label} style={styles.macroRow}>
+        <Text style={styles.macroText}>{`${d.label}: ${d.value}g`}</Text>
+        <ProgressBar progress={d.value / maxVal} color="#0a7ea4" style={styles.macroBar} />
+      </View>
+    ));
   };
 
   const handleLogout = async () => {
@@ -149,9 +156,16 @@ export default function PantryScreen() {
             <Card.Content style={styles.cardBody}>
               <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
               <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
+              {expandedItemId === item.id && (
+                <View style={styles.macrosContainer}>
+                  {renderMacroBars(item.macros)}
+                </View>
+              )}
             </Card.Content>
             <Card.Actions style={styles.cardActions}>
-              <Button onPress={() => showItemDetails(item)}>Info</Button>
+              <Button onPress={() => toggleExpandItem(item.id)}>
+                {expandedItemId === item.id ? 'Hide' : 'Info'}
+              </Button>
               <Button textColor="#ff4d4d" onPress={() => handleDeleteItem(item.id)}>Delete</Button>
             </Card.Actions>
           </Card>
@@ -195,35 +209,6 @@ export default function PantryScreen() {
         </View>
       </Modal>
 
-      {/* Modal for item details */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            {selectedItemDetails ? (
-              <>
-                <Text style={styles.modalTitle}>{selectedItemDetails.product_name}</Text>
-                <Text>Quantity: {selectedItemDetails.quantity}</Text>
-                <Text>Calories: {selectedItemDetails.macros.calories}</Text>
-                <Text>Protein: {selectedItemDetails.macros.protein}g</Text>
-                <Text>Carbs: {selectedItemDetails.macros.carbohydrates}g</Text>
-                <Text>Fat: {selectedItemDetails.macros.fat}g</Text>
-                <Text>Sodium: {selectedItemDetails.macros.sodium}mg</Text>
-                <Text>Iron: {selectedItemDetails.macros.iron}mg</Text>
-              </>
-            ) : (
-              <Text>Loading...</Text>
-            )}
-            <Button mode="contained" onPress={() => setModalVisible(false)}>
-              Close
-            </Button>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -276,7 +261,8 @@ const styles = StyleSheet.create({
 
   recipeContainer: { marginTop: 16, padding: 16, backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   recipeText: { fontSize: 16, lineHeight: 24 },
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-  modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 12, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
+  macrosContainer: { marginTop: 8 },
+  macroRow: { marginBottom: 6 },
+  macroText: { fontSize: 12, marginBottom: 2 },
+  macroBar: { height: 8, borderRadius: 4 },
 });
