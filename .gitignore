@@ -1,8 +1,23 @@
+# Ignore Python virtual environments
 *.venv*
-*__pycache__*
+
+# Ignore Python cache files
+__pycache__*
+
+# Ignore environment variable files
 *.env*
+
+# Ignore database dumps
 *database.json*
-**.env**
-**/**/__pycache__*
+
+# Ignore user data (private)
 user_data/
+
+# Ignore Streamlit UI if not used
+streamlit/
+
+# Ignore Node modules
+expo/ppal/node_modules/
+
+# Ignore local config
 .direnv/

@@ -2,12 +2,14 @@ import json
 import os
 from ollama import Client
 import logging
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.responses import StreamingResponse
 from storage.utils import read_pantry_items
 from models.models import InventoryItemMacros, LLMChatRequest
 from datetime import datetime
 import pytz  # Import pytz for timezone conversion
+from pantry.pantry_service import get_current_user
+from auth.auth_service import get_user_id_from_token
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -31,8 +33,18 @@ def initialize_model():
 # initialize_model()
 
 @ai_router.get("/meal_recommendation")
-def get_recipe_recommendations(user_id: str):
-    """Get AI-powered recipe recommendations based on the user's pantry items."""
+def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
+    """
+    Get AI-powered recipe recommendations based on the user's pantry items.
+
+    Parameters:
+        user_id (str): The ID of the authenticated user.
+    Returns:
+        list or dict: List of recommended recipes or an error message.
+    Error Codes:
+        400: Bad request if user_id is missing or invalid.
+        500: Internal server error if recipe generation fails.
+    """
     logging.info(f"Generating recipe recommendations for user ID: {user_id}")
     items = read_pantry_items(user_id)
     prompt = generate_recipe_prompt(items)
@@ -44,11 +56,22 @@ def get_recipe_recommendations(user_id: str):
         return recipes
     except Exception as e:
         logging.error(f"Error generating recipes: {e}")
-        return {"error": "Failed to generate recipes"}
+        raise HTTPException(status_code=500, detail="Failed to generate recipes")
 
 @ai_router.post("/meal_suggestions")
-def get_meal_suggestions(user_id: str, daily_macro_goals: InventoryItemMacros):
-    """Get AI-powered meal suggestions based on the user's pantry items and daily macro goals."""
+def get_meal_suggestions(daily_macro_goals: InventoryItemMacros, user_id: str = Depends(get_user_id_from_token)):
+    """
+    Get AI-powered meal suggestions based on the user's pantry items and daily macro goals.
+
+    Parameters:
+        daily_macro_goals (InventoryItemMacros): The user's daily macro-nutrient goals (request body).
+        user_id (str): The ID of the authenticated user.
+    Returns:
+        list or dict: List of meal suggestions or an error message.
+    Error Codes:
+        400: Bad request if input is missing or invalid.
+        500: Internal server error if meal suggestion generation fails.
+    """
     logging.info(f"Generating meal suggestions for user ID: {user_id} with daily macro goals: {daily_macro_goals}")
     items = read_pantry_items(user_id)
     prompt = generate_meal_suggestion_prompt(items, daily_macro_goals)
@@ -60,10 +83,21 @@ def get_meal_suggestions(user_id: str, daily_macro_goals: InventoryItemMacros):
         return meal_suggestions
     except Exception as e:
         logging.error(f"Error generating meal suggestions: {e}")
-        return {"error": "Failed to generate meal suggestions"}
+        raise HTTPException(status_code=500, detail="Failed to generate meal suggestions")
 
 @ai_router.post("/llm_chat")
 def llm_chat(request: LLMChatRequest):
+    """
+    Send a prompt to the LLM (Ollama) and stream the response back to the client.
+
+    Parameters:
+        request (LLMChatRequest): The chat request containing the prompt (request body).
+    Returns:
+        StreamingResponse: Streamed LLM response as plain text.
+    Error Codes:
+        400: Bad request if prompt is missing.
+        500: Internal server error if LLM communication fails.
+    """
     prompt = request.prompt
     if not prompt:
         return {"error": "No prompt provided"}

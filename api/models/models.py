@@ -52,6 +52,7 @@ class InventoryItem(BaseModel):
     cost: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
     expiration_date: Optional[str] = None
     environmental_impact: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
+    image_url: Optional[str] = None  # Public S3 URL for item image
     active: bool = True  # Default to active
 
     @validator("cost", "environmental_impact", pre=True, always=True)

@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = process.env.API_BASE || 'https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/';
-// const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+// const API_BASE = process.env.API_BASE || 'https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/';
+const API_BASE = process.env.API_BASE || 'http://localhost:8000';
 const apiClient = axios.create({
   baseURL: API_BASE,
 });
@@ -39,21 +39,22 @@ export async function refreshAuthToken(): Promise<string | null> {
     }
 
     const response = await apiClient.post('/auth/refresh', { refresh_token: refreshToken });
-    const { access_token, refresh_token: newRefreshToken } = response.data;
+    const { id_token, refresh_token: newRefreshToken } = response.data;
 
+    // Store new ID token for authentication
     if (Platform.OS === 'web') {
-      await AsyncStorage.setItem('userToken', access_token);
+      await AsyncStorage.setItem('userToken', id_token);
       if (newRefreshToken) {
         await AsyncStorage.setItem('refreshToken', newRefreshToken);
       }
     } else {
-      await SecureStore.setItemAsync('userToken', String(access_token)); // Ensure value is a string
+      await SecureStore.setItemAsync('userToken', id_token);
       if (newRefreshToken) {
-        await SecureStore.setItemAsync('refreshToken', String(newRefreshToken)); // Ensure value is a string
+        await SecureStore.setItemAsync('refreshToken', newRefreshToken);
       }
     }
 
-    return access_token;
+    return id_token;
   } catch (error) {
     console.error('Error refreshing auth token:', error.response?.data || error.message);
     await logout(); // Force logout if token refresh fails
@@ -64,8 +65,13 @@ export async function refreshAuthToken(): Promise<string | null> {
 // Attach JWT from secure storage to every request
 apiClient.interceptors.request.use(async config => {
   const token = await getItem('userToken');
+  // Ensure headers object exists
+  if (!config.headers) {
+    (config as any).headers = {};
+  }
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    // Attach JWT token
+    (config.headers as any)['Authorization'] = `Bearer ${token}`;
   }
   return config;
 });
@@ -75,8 +81,10 @@ apiClient.interceptors.response.use(
   response => response,
   async error => {
     if (error.response?.status === 401) {
+      console.warn('API Request received 401, attempting token refresh');
       const newToken = await refreshAuthToken();
       if (newToken) {
+        console.log('Token refresh succeeded, retrying with new token:', newToken);
         error.config.headers.Authorization = `Bearer ${newToken}`;
         return apiClient.request(error.config);
       } else {
