@@ -2,7 +2,11 @@ import cv2
 from pyzbar.pyzbar import decode, ZBarSymbol
 import numpy as np
 import requests
-
+from dotenv import load_dotenv
+import os
+# Load environment variables from .env file
+load_dotenv()
+USDA_API_KEY = os.getenv('USDA_API_KEY')
 def decode_barcodes(image):
     # Decode barcodes in the image (no restrictions on barcode type)
     barcodes = decode(image)
@@ -59,7 +63,6 @@ else:
         if barcode_info:
             for data, barcode_type in barcode_info:
                 print(f"Detected barcode: {data} ({barcode_type})")
-                USDA_API_KEY = 'RZxFMwUiUpxIsWT0gKENTOLrQpRlc3PcyDUTyBYB'
                 search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
                 params = {'query': data}
                 response = requests.get(search_url, params=params)

@@ -345,7 +345,7 @@ def get_total_macros(upc_code: str):
     """
     fdc_id = search_food_item(upc_code)
     if fdc_id == None:
-        upc_code = + upc_code
+        upc_code =+ upc_code
         fdc_id = search_food_item(upc_code)
     response = UPCResponseModel(fdc_id = fdc_id)
     return response
