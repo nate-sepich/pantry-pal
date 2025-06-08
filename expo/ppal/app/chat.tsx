@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text } from 'react-native';
 import { Appbar, Button, List } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
@@ -171,6 +171,24 @@ export default function ChatScreen() {
             <List.Item
               key={idx}
               title={`${it.product_name}${it.quantity ? ` x${it.quantity}` : ''}`}
+              description={() =>
+                it.macros ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {it.macros.calories && (
+                      <Text style={{ marginRight: 8 }}>{`Cal ${it.macros.calories}`}</Text>
+                    )}
+                    {it.macros.protein && (
+                      <Text style={{ marginRight: 8 }}>{`P ${it.macros.protein}g`}</Text>
+                    )}
+                    {it.macros.carbohydrates && (
+                      <Text style={{ marginRight: 8 }}>{`C ${it.macros.carbohydrates}g`}</Text>
+                    )}
+                    {it.macros.fat && (
+                      <Text style={{ marginRight: 8 }}>{`F ${it.macros.fat}g`}</Text>
+                    )}
+                  </View>
+                ) : null
+              }
             />
           ))}
         </List.Accordion>

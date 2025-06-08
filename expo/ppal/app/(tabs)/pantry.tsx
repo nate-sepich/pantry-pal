@@ -118,8 +118,9 @@ export default function PantryScreen() {
     }
     lines.push('Provide recipes and suggestions based on these ingredients.');
     lines.push(
-      'When replying, return JSON with keys: title, ingredients, steps, total_macros.'
+      'Reply in Markdown with easy to read sections for Ingredients, Steps and Total Macros.'
     );
+    lines.push('Use bullet lists where appropriate and keep the language concise.');
     return lines.join('\n');
   };
 
