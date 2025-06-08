@@ -10,7 +10,6 @@ from pantry.pantry_service import pantry_router, get_roi_metrics
 from ai.openai_service import enrich_image_job  # helper for image hydration
 from macros.macro_service import macro_router, enrich_item, enrich_recipe
 from auth.auth_service import auth_router
-from ai.ai_service import ai_router
 from ai.openai_service import openai_router
 from dotenv import load_dotenv
 
@@ -33,7 +32,6 @@ app.add_middleware(
 app.include_router(pantry_router, tags=["Pantry"])
 app.include_router(macro_router, tags=["Macros"])
 app.include_router(auth_router, tags=["Auth"])
-app.include_router(ai_router, tags=["AI"])
 app.include_router(openai_router, tags=["OpenAI"])
 
 # Add new routes
