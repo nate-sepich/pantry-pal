@@ -5,7 +5,12 @@ from openai import OpenAI
 from fastapi import APIRouter, HTTPException, Depends, Request
 from starlette.responses import StreamingResponse
 from storage.utils import read_pantry_items
-from models.models import InventoryItemMacros, LLMChatRequest
+from models.models import (
+    InventoryItemMacros,
+    LLMChatRequest,
+    RecipeRequest,
+    RecipeResponse,
+)
 from datetime import datetime
 import pytz  # Import pytz for timezone conversion
 from auth.auth_service import get_user_id_from_token
@@ -27,6 +32,16 @@ if not api_key:
 
 openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 openai_client = OpenAI(api_key=api_key)
+
+
+def call_openai(prompt: str) -> str:
+    """Execute a chat completion and return the raw string."""
+    resp = openai_client.chat.completions.create(
+        model=openai_model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=800,
+    )
+    return resp.choices[0].message.content
 
 # Bucket name for images
 S3_BUCKET_NAME = os.getenv("IMAGE_BUCKET_NAME", "ppal-images")
@@ -62,7 +77,7 @@ def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
     check_api_key()
     logging.info(f"Generating OpenAI recipe recommendations for user ID: {user_id}")
     items = read_pantry_items(user_id)
-    prompt = generate_recipe_prompt(items)
+    prompt = build_recipe_prompt(items)
     
     try:
         logging.info(f"OpenAI meal generation starting for: {user_id}")
@@ -148,6 +163,33 @@ def generate_image(request: dict, user_id: str = Depends(get_user_id_from_token)
         logging.error(f"Error generating image: {e}")
         raise HTTPException(status_code=500, detail="Image generation failed")
 
+
+@openai_router.post("/recipes/generate", response_model=RecipeResponse)
+def gen_recipe(req: RecipeRequest, user_id: str = Depends(get_user_id_from_token)):
+    """Generate a recipe from selected pantry items."""
+    check_api_key()
+    items = read_pantry_items(user_id)
+    id_map = {}
+    for it in items:
+        if isinstance(it, dict):
+            id_map[it["id"]] = it
+        else:
+            id_map[it.id] = it.dict()
+    selected = []
+    for item_id in req.itemIds:
+        if item_id not in id_map:
+            raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
+        selected.append(id_map[item_id])
+
+    prompt = build_recipe_prompt(selected, req.modifiers)
+    try:
+        raw = call_openai(prompt)
+        recipe = json.loads(raw)
+    except Exception as e:
+        logging.error(f"LLM error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to parse LLM response")
+    return {"recipe": recipe}
+
 def enrich_image_job(payload: dict):
     """Hydrate a single pantry item image: generate via OpenAI, upload to S3, and persist URL."""
     check_api_key()
@@ -170,29 +212,30 @@ def enrich_image_job(payload: dict):
     )
     logging.info(f"Enriched image for item {item_id}")
 
-def generate_recipe_prompt(items):
-    """Generate a prompt for the OpenAI model to create recipes based on pantry items with macros."""
-    logging.info("Generating recipe prompt for OpenAI model with macros")
-    item_details = ""
-    for item in items:
-        macros = item.get('macros', {})
-        # Format macros as a string
-        macros_str = ", ".join(f"{key}: {value}" for key, value in macros.items() if value)
-        item_detail = f"- {item['product_name']}: {macros_str}"
-        item_details += item_detail + "\n"
-    
-    # Add current date and time in US Central Time to the prompt
-    central = pytz.timezone('US/Central')
-    current_time = datetime.now(central).strftime("%Y-%m-%d %H:%M:%S")
-    
-    prompt = (
-        f"Current Date and Time: {current_time}\n\n"
-        "Using the following pantry items with their nutritional information, create a recipe.\n"
-        "Provide the recipe name, ingredients, instructions, and estimated nutritional information.\n\n"
-        "Pantry Items:\n"
-        f"{item_details}"
+def build_recipe_prompt(items, modifiers=None) -> str:
+    """Build a structured recipe generation prompt."""
+    prompt = ["Use these ingredients:"]
+    for it in items:
+        prompt.append(f"- {it['product_name']} ({it['quantity']})")
+
+    if modifiers:
+        if getattr(modifiers, "servings", None):
+            prompt.append(f"\nScale recipe to {modifiers.servings} servings.")
+        if getattr(modifiers, "flavorAdjustments", None):
+            for adj in modifiers.flavorAdjustments:
+                prompt.append(f"\nMake it {adj.lower()}.")
+        if getattr(modifiers, "removeItems", None):
+            for rm in modifiers.removeItems:
+                prompt.append(f"\nExclude {rm}.")
+        if getattr(modifiers, "overrides", None):
+            prompt.append("\nAdditional notes:")
+            for note in modifiers.overrides:
+                prompt.append(f"- {note}")
+
+    prompt.append(
+        "\nGenerate JSON: title, ingredients (with qty), steps, total macros."
     )
-    return prompt
+    return "\n".join(prompt)
 
 def generate_meal_suggestion_prompt(items, daily_macro_goals):
     """Generate a prompt for the OpenAI model to create meal suggestions based on pantry items and daily macro goals."""

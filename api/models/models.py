@@ -133,3 +133,19 @@ class Recipe(BaseModel):
             )
         
         return total_macros
+
+
+class RecipeModifiers(BaseModel):
+    servings: Optional[int] = None
+    flavorAdjustments: Optional[List[str]] = None
+    removeItems: Optional[List[str]] = None
+    overrides: Optional[List[str]] = None
+
+
+class RecipeRequest(BaseModel):
+    itemIds: List[str]
+    modifiers: Optional[RecipeModifiers] = None
+
+
+class RecipeResponse(BaseModel):
+    recipe: dict

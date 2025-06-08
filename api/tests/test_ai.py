@@ -54,3 +54,22 @@ def test_generate_image_not_found():
     # No pantry items exist, so image generation should return 404
     response = client.post("/openai/generate_image", json={"item_id":"unknown"})
     assert response.status_code == 404
+
+
+def test_build_recipe_prompt_servings():
+    items = [{"product_name": "Rice", "quantity": 1}]
+    mods = SimpleNamespace(servings=4)
+    prompt = openai_service.build_recipe_prompt(items, mods)
+    assert "Scale recipe to 4 servings." in prompt
+
+
+def test_generate_recipe_endpoint():
+    openai_service.read_pantry_items = lambda user_id: [{"id": "1", "product_name": "Rice", "quantity": 1}]
+    class DummyChat2:
+        def create(self, *args, **kwargs):
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"title":"t"}'))])
+    openai_service.openai_client = SimpleNamespace(chat=SimpleNamespace(completions=DummyChat2()), images=DummyImage())
+    payload = {"itemIds": ["1"], "modifiers": {"servings": 2}}
+    resp = client.post("/openai/recipes/generate", json=payload)
+    assert resp.status_code == 200
+    assert resp.json() == {"recipe": {"title": "t"}}

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView, Image } from 'react-native';
-import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton } from 'react-native-paper';
+import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
 import { InventoryItem } from '../../src/types/InventoryItem';
+import { RecipeRequest, RecipeResponse } from '../../src/types/RecipeRequest';
 
 export default function PantryScreen() {
   const { userToken, userId, loading, signOut } = useAuth();
@@ -14,6 +15,12 @@ export default function PantryScreen() {
   const [pantryItems, setPantryItems] = useState<InventoryItem[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [servings, setServings] = useState(1);
+  const [showServingsPicker, setShowServingsPicker] = useState(false);
+  const [flavorAdjustments, setFlavorAdjustments] = useState<string[]>([]);
+  const [removeItems, setRemoveItems] = useState<string[]>([]);
+  const [overrideInput, setOverrideInput] = useState('');
+  const [overrides, setOverrides] = useState<string[]>([]);
   const [itemName, setItemName] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -84,6 +91,24 @@ export default function PantryScreen() {
     }
   };
 
+  const handleGenerate = async () => {
+    const payload: RecipeRequest = {
+      itemIds: selectedItems,
+      modifiers: {
+        servings: servings !== 1 ? servings : undefined,
+        flavorAdjustments: flavorAdjustments.length ? flavorAdjustments : undefined,
+        removeItems: removeItems.length ? removeItems : undefined,
+        overrides: overrides.length ? overrides : undefined,
+      },
+    };
+    try {
+      const res = await apiClient.post<RecipeResponse>('/openai/recipes/generate', payload);
+      console.log('Generated recipe:', res.data);
+    } catch (e) {
+      console.error('Recipe generation failed', e);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedItems(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -92,6 +117,25 @@ export default function PantryScreen() {
     
   const toggleExpandItem = (id: string) => {
     setExpandedItemId(prev => (prev === id ? null : id));
+  };
+
+  const toggleFlavor = (label: string) => {
+    setFlavorAdjustments(prev =>
+      prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
+    );
+  };
+
+  const toggleRemove = (name: string) => {
+    setRemoveItems(prev =>
+      prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]
+    );
+  };
+
+  const addOverride = () => {
+    if (overrideInput.trim()) {
+      setOverrides(prev => [...prev, overrideInput.trim()]);
+      setOverrideInput('');
+    }
   };
 
   const renderMacroBars = (macros: any) => {
@@ -146,7 +190,14 @@ export default function PantryScreen() {
           </View>
         )}
         renderItem={({ item }) => (
-          <Card style={[styles.card, { width: (width - 48) / 2 }]}>
+          <Card
+            style={[
+              styles.card,
+              { width: (width - 48) / 2 },
+              selectedItems.includes(item.id) && styles.selectedCard,
+            ]}
+            onPress={() => toggleSelect(item.id)}
+          >
             {item.imageUrl ? (
               <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
             ) : (
@@ -177,6 +228,69 @@ export default function PantryScreen() {
           </Card>
         )}
       />
+
+      {selectedItems.length > 0 && (
+        <View style={styles.modifierSection}>
+          <View style={styles.chipRow}>
+            <Chip
+              style={styles.chip}
+              selected={servings > 1}
+              onPress={() => setShowServingsPicker(true)}
+            >
+              {servings > 1 ? `${servings} Servings` : 'Scale Servings'}
+            </Chip>
+            <Chip
+              style={styles.chip}
+              selected={flavorAdjustments.includes('Less Salty')}
+              onPress={() => toggleFlavor('Less Salty')}
+            >
+              Less Salty
+            </Chip>
+            <Chip
+              style={styles.chip}
+              selected={flavorAdjustments.includes('No Carbs')}
+              onPress={() => toggleFlavor('No Carbs')}
+            >
+              No Carbs
+            </Chip>
+            {pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0) && (
+              <Chip
+                style={styles.chip}
+                selected={removeItems.includes(
+                  pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                )}
+                onPress={() =>
+                  toggleRemove(
+                    pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                  )
+                }
+              >
+                {`Remove ${
+                  pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                }`}
+              </Chip>
+            )}
+          </View>
+          <View style={styles.overrideRow}>
+            {overrides.map(note => (
+              <Chip key={note} style={styles.chip} onClose={() => setOverrides(overrides.filter(n => n !== note))}>
+                {note}
+              </Chip>
+            ))}
+            <PaperTextInput
+              style={styles.overrideInput}
+              mode="outlined"
+              placeholder="Add note"
+              value={overrideInput}
+              onChangeText={setOverrideInput}
+              onSubmitEditing={addOverride}
+            />
+          </View>
+          <Button mode="contained" onPress={handleGenerate} style={styles.generateButton}>
+            Generate Recipe
+          </Button>
+        </View>
+      )}
 
       {/* Floating Add Button */}
       <FAB
@@ -223,6 +337,20 @@ export default function PantryScreen() {
         </View>
       </Modal>
 
+      <Modal visible={showServingsPicker} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSheet}>
+            <Text style={styles.addTitle}>Servings</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <IconButton icon="minus" onPress={() => setServings(Math.max(1, servings - 1))} />
+              <Text>{servings}</Text>
+              <IconButton icon="plus" onPress={() => setServings(Math.min(8, servings + 1))} />
+            </View>
+            <Button onPress={() => setShowServingsPicker(false)}>Done</Button>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -246,6 +374,15 @@ const styles = StyleSheet.create({
   cardQuantity: { fontSize: 14, color: '#666', marginBottom: 8 },
   cardActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
   columnWrapper: { justifyContent: 'space-between' },
+
+  selectedCard: { borderColor: '#0a7ea4', borderWidth: 2 },
+
+  modifierSection: { padding: 16 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  chip: { marginRight: 8, marginBottom: 8 },
+  overrideRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  overrideInput: { flex: 1, marginVertical: 4 },
+  generateButton: { marginTop: 8 },
 
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
   emptySubtext: { fontSize: 14, color: '#888', marginTop: 4 },
