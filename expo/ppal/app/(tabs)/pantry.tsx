@@ -163,10 +163,10 @@ export default function PantryScreen() {
               )}
             </Card.Content>
             <Card.Actions style={styles.cardActions}>
-              <Button onPress={() => toggleExpandItem(item.id)}>
+              <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
                 {expandedItemId === item.id ? 'Hide' : 'Info'}
               </Button>
-              <Button textColor="#ff4d4d" onPress={() => handleDeleteItem(item.id)}>Delete</Button>
+              <Button textColor="#0a7ea4" onPress={() => handleDeleteItem(item.id)}>Delete</Button>
             </Card.Actions>
           </Card>
         )}
@@ -199,10 +199,18 @@ export default function PantryScreen() {
               value={itemQuantity}
               onChangeText={setItemQuantity}
             />
-            <Button mode="contained" style={styles.addButton} onPress={() => { handleAddItem(); setAddModalVisible(false); }}>
+            <Button
+              mode="contained"
+              style={styles.addButton}
+              buttonColor="#0a7ea4"
+              onPress={() => {
+                handleAddItem();
+                setAddModalVisible(false);
+              }}
+            >
               Save
             </Button>
-            <Button mode="text" onPress={() => setAddModalVisible(false)}>
+            <Button mode="text" textColor="#0a7ea4" onPress={() => setAddModalVisible(false)}>
               Cancel
             </Button>
           </View>
@@ -219,7 +227,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
-  logoutButton: { backgroundColor: '#ff4d4d', padding: 8, borderRadius: 8 },
+  logoutButton: { backgroundColor: '#0a7ea4', padding: 8, borderRadius: 8 },
   logoutButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   emptyText: { fontSize: 16, color: '#888', textAlign: 'center', marginVertical: 16 },
   list: { paddingHorizontal: 16, paddingBottom: 120 },
