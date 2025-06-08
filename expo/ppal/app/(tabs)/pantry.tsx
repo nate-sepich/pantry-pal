@@ -133,7 +133,7 @@ export default function PantryScreen() {
     const newId = Math.random().toString(36).slice(2);
     const chat: Chat = { id: newId, title: 'New Chat', messages: [sysMsg], context: selected, updatedAt: new Date().toISOString() };
     await upsertChat(chat);
-    await apiClient.post('/chats', { id: newId, title: chat.title, updatedAt: chat.updatedAt, length: chat.messages.length });
+    await apiClient.put(`/chats/${newId}`, chat);
     router.push({ pathname: '/chat', params: { chatId: newId } });
   };
 

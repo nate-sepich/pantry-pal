@@ -121,7 +121,14 @@ export default function ChatScreen() {
   useEffect(() => {
     const init = async () => {
       if (chatId) {
-        const existing = await getChat(chatId as string);
+        let existing = await getChat(chatId as string);
+        if (!existing) {
+          try {
+            const res = await apiClient.get(`/chats/${chatId}`);
+            existing = res.data as Chat;
+            await upsertChat(existing);
+          } catch {}
+        }
         if (existing) {
           setMessages(existing.messages);
           setTitle(existing.title);
@@ -138,12 +145,7 @@ export default function ChatScreen() {
           const newId = Math.random().toString(36).slice(2);
           const newChat: Chat = { id: newId, title: obj.title || 'Recipe', messages: [initial], context: [], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
-          await apiClient.post('/chats', {
-            id: newId,
-            title: newChat.title,
-            updatedAt: newChat.updatedAt,
-            length: newChat.messages.length,
-          });
+          await apiClient.put(`/chats/${newId}`, newChat);
           setMessages(newChat.messages);
           setTitle(newChat.title);
           setId(newId);
@@ -152,12 +154,7 @@ export default function ChatScreen() {
           const newId = Math.random().toString(36).slice(2);
           const newChat: Chat = { id: newId, title: 'Recipe', messages: [initial], context: [], updatedAt: new Date().toISOString() };
           await upsertChat(newChat);
-          await apiClient.post('/chats', {
-            id: newId,
-            title: newChat.title,
-            updatedAt: newChat.updatedAt,
-            length: newChat.messages.length,
-          });
+          await apiClient.put(`/chats/${newId}`, newChat);
           setMessages(newChat.messages);
           setTitle(newChat.title);
           setId(newId);
@@ -181,12 +178,7 @@ export default function ChatScreen() {
     const updated: Chat = { id, title: parsed.title || 'Recipe', messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
     setTitle(updated.title);
     await upsertChat(updated);
-    await apiClient.post('/chats', {
-      id: updated.id,
-      title: updated.title,
-      updatedAt: updated.updatedAt,
-      length: updated.messages.length,
-    });
+    await apiClient.put(`/chats/${updated.id}`, updated);
   };
 
   const removeItem = (index: number) => {
@@ -263,12 +255,7 @@ export default function ChatScreen() {
       const updated: Chat = { id, title: parsed.title || title, messages: finalMsgs, context, updatedAt: new Date().toISOString() };
       if (parsed.title) setTitle(parsed.title);
       await upsertChat(updated);
-      await apiClient.post('/chats', {
-        id: updated.id,
-        title: updated.title,
-        updatedAt: updated.updatedAt,
-        length: updated.messages.length,
-      });
+      await apiClient.put(`/chats/${updated.id}`, updated);
     } catch (e: any) {
       const errMsgs = [...newMsgs, { role: 'assistant', content: 'Error: ' + String(e) } as ChatMessage];
       setMessages(errMsgs);

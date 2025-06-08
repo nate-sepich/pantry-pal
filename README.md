@@ -161,6 +161,17 @@ docker compose up
 ```
 UI will be available at http://localhost:19002 (Expo DevTools), and API at http://localhost:8000
 
+### Chat Persistence Flow
+Chats are stored in DynamoDB so conversations can be restored across devices.  
+Each chat record is saved under two keys:
+
+1. **Chat metadata** – `PK=USER#<id>`, `SK=CHAT#<chat_id>`
+2. **Chat messages** – `PK=USER#<id>`, `SK=CHATMSG#<chat_id>`
+
+The frontend uses `/chats` to list metadata and `/chats/{id}` to fetch or update
+the full conversation. When a message is sent the updated chat is written back
+with a `PUT` request so that Dynamo always has the latest history.
+
 ## Architecture Diagram
 
 ```
@@ -191,7 +202,7 @@ UI will be available at http://localhost:19002 (Expo DevTools), and API at http:
                                 v
                         +------------------+
                         |  Data Storage    |
-                        |  (JSON Files)    |
+                        |   (DynamoDB)    |
                         +------------------+
 
      [Data Flow]
