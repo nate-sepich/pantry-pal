@@ -6,8 +6,13 @@ from decimal import Decimal
 class UPCResponseModel(BaseModel):
     fdc_id: str
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
 class LLMChatRequest(BaseModel):
-    prompt: str
+    messages: List[ChatMessage]
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

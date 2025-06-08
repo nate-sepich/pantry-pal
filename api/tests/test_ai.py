@@ -45,7 +45,7 @@ def test_meal_suggestions_success():
     assert response.json() == "dummy recipe"
 
 def test_llm_chat_success():
-    payload = {"prompt":"hello"}
+    payload = {"messages": [{"role": "user", "content": "hello"}]}
     response = client.post("/openai/llm_chat", json=payload)
     assert response.status_code == 200
     assert response.json() == {"response": "dummy recipe"}

@@ -119,16 +119,15 @@ def get_meal_suggestions(daily_macro_goals: InventoryItemMacros, user_id: str = 
 
 @openai_router.post("/llm_chat")
 def llm_chat(request: LLMChatRequest):
-    """Send a prompt to OpenAI and get a response."""
+    """Send chat history to OpenAI and get a response."""
     check_api_key()
-    prompt = request.prompt
-    if not prompt:
-        raise HTTPException(status_code=400, detail="No prompt provided")
-    
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
     try:
         response = openai_client.chat.completions.create(
             model=openai_model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[m.dict() for m in request.messages],
             max_tokens=500
         )
         return {"response": response.choices[0].message.content}
