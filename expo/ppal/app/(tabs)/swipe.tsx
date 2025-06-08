@@ -3,28 +3,29 @@ import { View, Text, StyleSheet } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
-
-interface Card {
-  id: string;
-  title: string;
-}
+import sampleRecipes from '../../assets/sampleRecipes.json';
+import { RecipeCard } from '../../src/types/RecipeCard';
 
 export default function SwipeScreen() {
   const { userToken } = useAuth();
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cards, setCards] = useState<RecipeCard[]>(sampleRecipes as RecipeCard[]);
 
   useEffect(() => {
     if (userToken) {
       fetchRecs();
+    } else {
+      // fall back to bundled sample data when unauthenticated
+      setCards(sampleRecipes as RecipeCard[]);
     }
   }, [userToken]);
 
   const fetchRecs = async () => {
     try {
       const res = await apiClient.get('/recipes/recommendations');
-      setCards(res.data.recommendations || []);
+      setCards(res.data.recommendations || (sampleRecipes as RecipeCard[]));
     } catch (e) {
-      console.error('Failed to fetch recommendations', e);
+      console.warn('Failed to fetch recommendations, using sample data');
+      setCards(sampleRecipes as RecipeCard[]);
     }
   };
 
