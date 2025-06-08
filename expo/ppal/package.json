@@ -45,6 +45,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
+    "react-native-deck-swiper": "^3.0.0",
     "react-native-markdown-display": "^7.0.2"
   },
   "devDependencies": {
