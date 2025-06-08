@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Modal } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import apiClient, { logout } from '../../src/api/client';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
+import { SafeAreaView, Image } from 'react-native';
+import { TextInput as RNTextInput } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
+import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
-import { useRouter } from 'expo-router'; // Import the router for navigation
-import { MaterialIcons } from '@expo/vector-icons'; // Import MaterialIcons for trash can icon
+import { useRouter, Redirect } from 'expo-router';
 
 export default function PantryScreen() {
-  const { userToken, userId, signIn, loading } = useAuth();
-  const router = useRouter(); // Initialize the router for navigation
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const { userToken, userId, loading, signOut } = useAuth();
+  const router = useRouter();
   const [pantryItems, setPantryItems] = useState<any[]>([]);
+  const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [recipeType, setRecipeType] = useState('Breakfast');
-  const [recipe, setRecipe] = useState<string>('');
   const [itemName, setItemName] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
   const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const { width } = Dimensions.get('window');
+  // Images are auto-generated upon item creation via the API
 
   useEffect(() => {
     if (userToken) {
@@ -33,13 +33,16 @@ export default function PantryScreen() {
   const fetchPantry = async () => {
     try {
       const res = await apiClient.get('/pantry/items');
-      console.log('Fetched pantry items:', res.data); // Debugging log to print all items
-      const activeItems = res.data.filter((item: any) => {
-        console.log('Item attributes:', item); // Debugging log for each item
-        return item.active; // Filter active items
-      });
+      console.log('Fetched pantry items:', res.data);
+      // Filter active items and map image_url to imageUrl
+      const activeItems = res.data
+        .filter((item: any) => item.active)
+        .map((item: any) => ({
+          ...item,
+          imageUrl: item.image_url || item.imageUrl || null,
+        }));
       setPantryItems(activeItems);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error fetching pantry items:', e);
     }
   };
@@ -60,8 +63,8 @@ export default function PantryScreen() {
       setItemName('');
       setItemQuantity('');
       fetchPantry(); // Refresh the pantry list
-    } catch (e) {
-      console.error('Error adding item:', e.response?.data || e.message);
+    } catch (e: any) {
+      console.error('Error adding item:', e);
     }
   };
 
@@ -74,8 +77,8 @@ export default function PantryScreen() {
 
       await apiClient.delete(`/pantry/items/${id}`); // Soft delete the item
       console.log(`Item with ID: ${id} marked as inactive.`);
-    } catch (e) {
-      console.error(`Error soft deleting item with ID: ${id}`, e.response?.data || e.message);
+    } catch (e: any) {
+      console.error(`Error soft deleting item with ID: ${id}`, e);
       // Optionally, refetch the pantry items to ensure consistency
       fetchPantry();
     }
@@ -85,19 +88,6 @@ export default function PantryScreen() {
     setSelectedItems(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
-  };
-
-  const handleGenerate = async () => {
-    const names = pantryItems
-      .filter(x => selectedItems.includes(x.id))
-      .map(x => x.product_name);
-    const prompt = `Create a ${recipeType} recipe using the following pantry items: ${names.join(', ')}.`;
-    try {
-      const res = await apiClient.post('/openai/llm_chat', { prompt });
-      setRecipe(res.data.response || res.data);
-    } catch (e) {
-      console.error(e);
-    }
   };
 
   const showItemDetails = (item: any) => {
@@ -114,11 +104,9 @@ export default function PantryScreen() {
   };
 
   const handleLogout = async () => {
-    console.log('Logging out...');
-    await logout(); // Clear tokens
-    signIn('', ''); // Reset authentication state
-    router.replace('/'); // Redirect to the login screen
-    console.log('User logged out successfully.');
+    // Clear auth state and storage
+    await signOut();
+    router.replace('/login');
   };
 
   if (loading) {
@@ -126,115 +114,86 @@ export default function PantryScreen() {
   }
 
   if (!userToken) {
-    console.log('Redirecting to login screen...');
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Sign In</Text>
-        <TextInput
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.button} onPress={() => signIn(username, password)}>
-          <Text style={styles.buttonText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <Redirect href="/login" />;
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.title}>My Pantry</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
-      {pantryItems.length === 0 ? (
-        <Text style={styles.emptyText}>Your pantry is empty. Add some items!</Text>
-      ) : (
-        <FlatList
-          data={pantryItems}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.item}>
-              <TouchableOpacity
-                onPress={() => toggleSelect(item.id)}
-                style={[
-                  styles.itemDetails,
-                  selectedItems.includes(item.id) && styles.selectedItem,
-                ]}
-              >
-                <Text style={styles.itemText}>{item.product_name} ({item.quantity})</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => showItemDetails(item)}
-                style={styles.infoButton}
-              >
-                <Text style={styles.infoButtonText}>i</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleDeleteItem(item.id)}
-                style={styles.deleteButton}
-              >
-                <MaterialIcons name="delete" size={24} color="#ff4d4d" />
-              </TouchableOpacity>
+      <FlatList
+        data={pantryItems}
+        keyExtractor={item => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={pantryItems.length < 2 ? styles.listCenter : styles.list}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Your pantry is empty.</Text>
+            <Text style={styles.emptySubtext}>Tap + to add your first item.</Text>
+          </View>
+        )}
+        renderItem={({ item }) => (
+          <View style={[styles.card, { width: (width - 48) / 2 }]}> 
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.cardPlaceholder}>
+                <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
+              </View>
+            )}
+            <View style={styles.cardBody}>
+              <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
+              <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
+              <View style={styles.cardActions}>
+                <TouchableOpacity onPress={() => showItemDetails(item)}>
+                  <MaterialIcons name="info-outline" size={20} color="#0a7ea4" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteItem(item.id)}>
+                  <MaterialIcons name="delete" size={20} color="#ff4d4d" />
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        />
-      )}
+          </View>
+        )}
+      />
 
-      <View style={styles.addContainer}>
-        <TextInput
-          placeholder="Item name"
-          value={itemName}
-          onChangeText={setItemName}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Quantity"
-          value={itemQuantity}
-          onChangeText={setItemQuantity}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.button} onPress={() => {
-          console.log('Add Item button pressed');
-          handleAddItem();
-        }}>
-          <Text style={styles.buttonText}>Add Item</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Picker
-        selectedValue={recipeType}
-        onValueChange={setRecipeType}
-        style={styles.picker}
-      >
-        <Picker.Item label="Breakfast" value="Breakfast" />
-        <Picker.Item label="Lunch" value="Lunch" />
-        <Picker.Item label="Dinner" value="Dinner" />
-        <Picker.Item label="Snack" value="Snack" />
-        <Picker.Item label="Dessert" value="Dessert" />
-      </Picker>
-
-      <TouchableOpacity style={styles.button} onPress={handleGenerate}>
-        <Text style={styles.buttonText}>Generate Recipe</Text>
+      {/* Floating Add Button */}
+      <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
+        <MaterialIcons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {recipe ? (
-        <View style={styles.recipeContainer}>
-          <Text style={styles.recipeText}>{recipe}</Text>
+      {/* Add Item Modal */}
+      <Modal visible={addModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSheet}>
+            <Text style={styles.addTitle}>Add Item</Text>
+            <RNTextInput
+              style={styles.addInput}
+              placeholder="Item name"
+              value={itemName}
+              onChangeText={setItemName}
+            />
+            <RNTextInput
+              style={styles.addInput}
+              placeholder="Quantity"
+              keyboardType="numeric"
+              value={itemQuantity}
+              onChangeText={setItemQuantity}
+            />
+            <TouchableOpacity style={styles.addButton} onPress={() => { handleAddItem(); setAddModalVisible(false); }}>
+              <Text style={styles.addButtonText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addCancel} onPress={() => setAddModalVisible(false)}>
+              <Text style={styles.addCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : null}
+      </Modal>
 
       {/* Modal for item details */}
       <Modal
@@ -268,31 +227,65 @@ export default function PantryScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 16, backgroundColor: '#f5f5f5' },
+  safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flexGrow: 1, padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
+  title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
   logoutButton: { backgroundColor: '#ff4d4d', padding: 8, borderRadius: 8 },
   logoutButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   emptyText: { fontSize: 16, color: '#888', textAlign: 'center', marginVertical: 16 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, backgroundColor: '#fff' },
-  item: { flexDirection: 'row', alignItems: 'center', padding: 16, marginVertical: 8, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
-  itemDetails: { flex: 1, paddingVertical: 8, paddingHorizontal: 12 },
-  selectedItem: { backgroundColor: '#d0f0c0', borderColor: '#a0d090' },
-  itemText: { fontSize: 16 },
-  addContainer: { marginTop: 16 },
-  picker: { marginVertical: 16, backgroundColor: '#fff', borderRadius: 8 },
+  list: { paddingHorizontal: 16, paddingBottom: 120 },
+  listCenter: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 12, margin: 8, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width:0, height:2 }, shadowRadius:4, elevation:3 },
+  cardImage: { width: '100%', height: 150, backgroundColor: '#eee' },
+  cardPlaceholder: { width: '100%', height: 150, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
+  cardBody: { padding: 12 },
+  cardTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
+  cardQuantity: { fontSize: 14, color: '#666', marginBottom: 8 },
+  cardActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
+  columnWrapper: { justifyContent: 'space-between' },
+
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
+  emptySubtext: { fontSize: 14, color: '#888', marginTop: 4 },
+
+  /* Add item bottom sheet style */
+  modalOverlay: { flex:1, justifyContent:'flex-end', backgroundColor:'rgba(0,0,0,0.4)' },
+  addSheet: { backgroundColor:'#fff', padding:16, borderTopLeftRadius:12, borderTopRightRadius:12 },
+  addTitle: { fontSize:20, fontWeight:'bold', marginBottom:12 },
+  addInput: { borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, marginBottom:12 },
+  addButton: { backgroundColor:'#0a7ea4', padding:14, borderRadius:8, alignItems:'center', marginBottom:8 },
+  addButtonText: { color:'#fff', fontSize:16, fontWeight:'600' },
+  addCancel: { alignItems:'center', padding:12 },
+  addCancelText: { fontSize:16, color:'#0a7ea4' },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0a7ea4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
   button: { backgroundColor: '#0a7ea4', padding: 12, borderRadius: 8, alignItems: 'center', marginVertical: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   recipeContainer: { marginTop: 16, padding: 16, backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   recipeText: { fontSize: 16, lineHeight: 24 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-  modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 8, alignItems: 'center' },
+  modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 12, alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
   selectButton: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f0f0f0', marginLeft: 8 },
   selectedButton: { backgroundColor: '#d0f0c0', borderColor: '#a0d090' },
@@ -300,8 +293,13 @@ const styles = StyleSheet.create({
   infoButton: { backgroundColor: '#0a7ea4', padding: 8, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   infoButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   deleteButton: {
-    marginLeft: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+     marginLeft: 8,
+     justifyContent: 'center',
+     alignItems: 'center',
+   },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 16 },
+  quantityBadge: { backgroundColor: '#0a7ea4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 12 },
+  badgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  itemImage: { width: 40, height: 40, borderRadius: 20, marginHorizontal: 8 },
+  imageButton: { padding: 4, marginHorizontal: 4 },
 });

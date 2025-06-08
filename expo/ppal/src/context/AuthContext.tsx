@@ -43,29 +43,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (username: string, password: string) => {
     try {
       const response = await apiClient.post('/auth/login', { username, password });
-      const { access_token, id } = response.data;
+      const { id_token, refresh_token } = response.data;
 
+      // Store id_token and refresh_token
       if (Platform.OS === 'web') {
-        await AsyncStorage.setItem('userToken', access_token);
-        await AsyncStorage.setItem('userId', id); // Store userId
+        await AsyncStorage.setItem('userToken', id_token);
+        if (refresh_token) await AsyncStorage.setItem('refreshToken', refresh_token);
       } else {
-        await SecureStore.setItemAsync('userToken', access_token);
-        await SecureStore.setItemAsync('userId', id); // Store userId
+        await SecureStore.setItemAsync('userToken', id_token);
+        if (refresh_token) await SecureStore.setItemAsync('refreshToken', refresh_token);
       }
 
-      setUserToken(access_token);
-      setUserId(id); // Set userId in state
-    } catch (error) {
+      setUserToken(id_token);
+      const payload = JSON.parse(atob(id_token.split('.')[1]));
+      setUserId(payload.sub);
+
+    } catch (error: any) {
       console.error('Error during sign-in:', error.response?.data || error.message);
+      throw error;
     }
   };
 
   const signOut = async () => {
     if (Platform.OS === 'web') {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('userId');
     } else {
       await SecureStore.deleteItemAsync('userToken');
+      await SecureStore.deleteItemAsync('refreshToken');
       await SecureStore.deleteItemAsync('userId');
     }
     setUserToken(null);

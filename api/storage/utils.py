@@ -52,16 +52,17 @@ def read_pantry_items(user_id: str) -> list[InventoryItem]:
             macros = InventoryItemMacros(**macros_data) if macros_data else None
 
             item = InventoryItem(
-                id                  = raw["id"],
-                active              = raw.get("active", True),
-                user_id             = user_id,
-                product_name        = raw.get("product_name", ""),
-                quantity            = int(raw.get("quantity", 1)),
-                upc                 = raw.get("upc",""),
-                macros              = macros,
-                cost                = Decimal(str(raw.get("cost", 0))),
-                expiration_date     = raw.get("expiration_date", None),
+                id                   = raw["id"],
+                user_id              = user_id,
+                product_name         = raw.get("product_name", ""),
+                quantity             = int(raw.get("quantity", 1)),
+                upc                  = raw.get("upc", ""),
+                macros               = macros,
+                cost                 = Decimal(str(raw.get("cost", 0))),
+                expiration_date      = raw.get("expiration_date", None),
                 environmental_impact = Decimal(str(raw.get("environmental_impact", 0))),
+                image_url            = raw.get("image_url", None),  # Persisted S3 URL
+                active               = raw.get("active", True),
             )
             items.append(item)
         return items

@@ -1,6 +1,6 @@
 import asyncio
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 import httpx
 import requests
 from pydantic import BaseModel
@@ -8,7 +8,8 @@ from typing import Optional, List
 from dotenv import load_dotenv
 from models.models import InventoryItemMacros, RecipeInput, UPCResponseModel
 import logging
-from storage.utils import read_pantry_items
+from storage.utils import read_pantry_items, write_pantry_items, read_recipe_items
+from pantry.pantry_service import get_current_user
 
 # load .env file
 load_dotenv()
@@ -171,7 +172,15 @@ def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
 @macro_router.get("/item")
 def get_item_macros(item_name: str):
     """
-    Endpoint to get the macro information for a given food item.
+    Retrieve macro-nutrient information for a given food item using the USDA FoodData Central API.
+
+    Parameters:
+        item_name (str): The name of the food item to look up (query parameter).
+    Returns:
+        InventoryItemMacros: Macro-nutrient data for the item, or an error message if not found.
+    Error Codes:
+        400: Bad request if item_name is missing or invalid.
+        404: Item not found or data unavailable.
     """
     macro_data = query_food_api(item_name)
     print(macro_data)
@@ -184,7 +193,14 @@ def get_item_macros(item_name: str):
 @macro_router.post("/recipe")
 async def get_recipe_macros(recipe: RecipeInput):
     """
-    Asynchronous endpoint to calculate the total macro information for a recipe based on ingredients and servings.
+    Calculate the total macro-nutrient information for a recipe based on its ingredients and servings.
+
+    Parameters:
+        recipe (RecipeInput): The recipe input containing ingredients and servings (request body).
+    Returns:
+        InventoryItemMacros: Aggregated macro-nutrient data for the recipe, scaled by servings.
+    Error Codes:
+        400: Bad request if input is invalid or ingredient data is missing.
     """
     total_macros = InventoryItemMacros()
 
@@ -244,8 +260,11 @@ async def get_recipe_macros(recipe: RecipeInput):
     return total_macros
 
 @macro_router.get("/item/{item_id}", response_model=InventoryItemMacros)
-def get_item_macros(item_id: str, user_id: str):
-    logging.info(f"Fetching macros for item ID: {item_id} for user ID: {user_id}")
+def get_item_macros(item_id: str, user_claims: dict = Depends(get_current_user)):
+    """
+    Retrieve macro-nutrient information for a specific pantry item by its ID and user ID.
+    """
+    user_id = user_claims["sub"]
     items = read_pantry_items(user_id)
     for item in items:
         if item["id"] == item_id:
@@ -253,8 +272,11 @@ def get_item_macros(item_id: str, user_id: str):
     raise HTTPException(status_code=404, detail="Item not found")
 
 @macro_router.get("/total", response_model=InventoryItemMacros)
-def get_total_macros(user_id: str):
-    logging.info(f"Calculating total macros for user ID: {user_id}")
+def get_total_macros(user_claims: dict = Depends(get_current_user)):
+    """
+    Calculate the total macro-nutrient values for all pantry items belonging to a user.
+    """
+    user_id = user_claims["sub"]
     items = read_pantry_items(user_id)
     total_macros = InventoryItemMacros()
     for item in items:
@@ -280,6 +302,17 @@ def get_total_macros(user_id: str):
 
 @macro_router.get("/autocomplete")
 async def autocomplete(query: str):
+    """
+    Provide top 5 autocomplete suggestions for food items based on the query using the USDA API.
+
+    Parameters:
+        query (str): The search query for food item names (query parameter).
+    Returns:
+        dict: A dictionary with a list of up to 5 suggestion strings.
+    Error Codes:
+        400: Bad request if query is missing or invalid.
+        500: Error fetching suggestions from USDA API.
+    """
     logging.info(f"Providing autocomplete suggestions for query: {query}")
     """
     Provide top 5 autocomplete suggestions based on the query using USDA API.
@@ -300,9 +333,77 @@ async def autocomplete(query: str):
 
 @macro_router.get("/UPC", response_model=UPCResponseModel)
 def get_total_macros(upc_code: str):
+    """
+    Retrieve the FDC ID for a food item using its UPC code via the USDA API.
+
+    Parameters:
+        upc_code (str): The UPC code of the food item (query parameter).
+    Returns:
+        UPCResponseModel: The FDC ID for the item, or None if not found.
+    Error Codes:
+        404: Item not found for the given UPC code.
+    """
     fdc_id = search_food_item(upc_code)
     if fdc_id == None:
         upc_code = + upc_code
         fdc_id = search_food_item(upc_code)
     response = UPCResponseModel(fdc_id = fdc_id)
     return response
+
+def enrich_item(data: dict):
+    """
+    Fetch macros for an item using the USDA API and update the pantry.
+    """
+    item_name = data["item_name"]
+    user_id = data["user_id"]
+    item_id = data["item_id"]
+
+    logging.info(f"Enriching item: {item_name} for user ID: {user_id}")
+    macros = query_food_api(item_name)
+    if macros:
+        items = read_pantry_items(user_id)
+        for i, it in enumerate(items):
+            if it.id == item_id:
+                it.macros = macros
+                write_pantry_items(user_id, [it])
+                logging.info(f"Updated macros for item ID: {item_id}")
+                return
+    logging.warning(f"Failed to enrich item: {item_name}. No macros found.")
+
+def enrich_recipe(data: dict):
+    """
+    Aggregate macros for a recipe based on its ingredients and update the recipe.
+    """
+    user_id = data["user_id"]
+    recipe_id = data["recipe_id"]
+
+    logging.info(f"Enriching recipe ID: {recipe_id} for user ID: {user_id}")
+    recipes = read_recipe_items(user_id)
+    for rec in recipes:
+        if rec.id == recipe_id:
+            total = InventoryItemMacros()
+            for ing in rec.ingredients:
+                macros = query_food_api(ing.item_name)
+                if macros:
+                    factor = ing.quantity / 100
+                    total.protein += macros.protein * factor
+                    total.carbohydrates += macros.carbohydrates * factor
+                    total.fiber += macros.fiber * factor
+                    total.sugar += macros.sugar * factor
+                    total.fat += macros.fat * factor
+                    total.saturated_fat += macros.saturated_fat * factor
+                    total.polyunsaturated_fat += macros.polyunsaturated_fat * factor
+                    total.monounsaturated_fat += macros.monounsaturated_fat * factor
+                    total.trans_fat += macros.trans_fat * factor
+                    total.cholesterol += macros.cholesterol * factor
+                    total.sodium += macros.sodium * factor
+                    total.potassium += macros.potassium * factor
+                    total.vitamin_a += macros.vitamin_a * factor
+                    total.vitamin_c += macros.vitamin_c * factor
+                    total.calcium += macros.calcium * factor
+                    total.iron += macros.iron * factor
+            rec.total_macros = total
+            write_recipe_items(user_id, [rec])
+            logging.info(f"Updated macros for recipe ID: {recipe_id}")
+            return
+    logging.warning(f"Failed to enrich recipe ID: {recipe_id}. Recipe not found.")
