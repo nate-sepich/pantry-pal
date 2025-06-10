@@ -1,0 +1,21 @@
+{
+    "Records": [
+      {
+        "messageId": "test-msg-1",
+        "receiptHandle": "fake-handle",
+        "body": "{\"jobType\":\"ITEM\",\"payload\":{\"user_id\":\"Nate\",\"item_id\":\"f4d6de86-7da4-412e-ac40-f41aa592bead\",\"item_name\":\"Eggs\"}}",
+        "attributes": {
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1600000000000",
+          "SenderId": "123456789012",
+          "ApproximateFirstReceiveTimestamp": "1600000000000"
+        },
+        "messageAttributes": {},
+        "md5OfBody": "fake",
+        "eventSource": "aws:sqs",
+        "eventSourceARN": "arn:aws:sqs:us-east-1:000000000000:PantryMacroQueue",
+        "awsRegion": "us-east-1"
+      }
+    ]
+  }
+  

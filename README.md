@@ -43,6 +43,12 @@ Enterprise-grade security features:
 ## Technical Overview
 
 PantryPal is a microservices-based AI-powered kitchen management system that demonstrates modern software architecture and AI integration patterns. The system combines inventory tracking with intelligent recipe generation through Ollama LLM integration.
+## Repository Layout
+- `api/` – FastAPI backend
+- `expo/ppal/` – Expo React Native frontend
+- `docs/` – diagrams and images
+- `setup.sh` – install dependencies
+- `AGENTS.md` – notes for Codex agents
 
 ## Technical Architecture
 
@@ -105,65 +111,55 @@ Flow:
 ## Development Setup
 
 ### Prerequisites
-- Docker and docker-compose
-- Ollama installed locally (for non-Docker development)
+- Node.js & npm
 - Python 3.8+
+- Docker & docker-compose (optional for containerized development)
+- (Optional) expo-cli: `npm install -g expo-cli`
 
-### Environment Configuration
+### Quick Setup Scripts
+Use the platform script at the repo root to install dependencies for both API and UI:
 ```bash
-AI_OLLAMA_MODEL=mistral
-LLM_CLIENT_BASE=http://ollama:11434
-USDA_API_KEY=your_api_key_here  # Required for nutritional data
-SECRET_KEY=your_secret_key      # Required for JWT encryption
-ACCESS_TOKEN_EXPIRE_MINUTES=30  # JWT token expiry time
+# macOS/Linux
+./setup.sh
+```
+```bat
+:: Windows (cmd.exe)
+setup.bat
+```
+
+An example environment file is provided at `api/.env.example`.
+
+After running the script, copy and configure your environment variables:
+```bash
+cp api/.env.example api/.env  # or create api/.env
+# populate required keys:
+PANTRY_TABLE_NAME=PantryPal
+AUTH_TABLE_NAME=AuthTable
+USDA_API_KEY=<your_usda_api_key>
+OPENAI_API_KEY=<your_openai_api_key>
+SECRET_KEY=<your_secret_key>
+MACRO_QUEUE_URL=<your_sqs_macro_queue_url>
+IMAGE_QUEUE_URL=<your_sqs_image_queue_url>
+```
+
+### Running Locally
+```bash
+# Start the FastAPI backend
+cd api
+source .venv/bin/activate        # Windows: .\.venv\Scripts\activate
+uvicorn app:app --reload --port 8000
+
+# Start the Expo (React Native) UI
+cd ../expo/ppal
+npm start
 ```
 
 ### Running with Docker
-
-Ensure `docker` and `docker-compose` are installed, then run:
-
+You can also spin up the whole stack via Docker Compose:
 ```bash
 docker compose up
 ```
-
-The UI will be available at [http://127.0.0.1:8501](http://127.0.0.1:8501)
-
-### Running Locally
-
-For local development, first install Ollama from [ollama.ai](https://ollama.ai) and run:
-
-```bash
-ollama pull mistral
-ollama serve
-```
-
-Then you can run each component separately:
-
-#### FastAPI Backend
-
-```bash
-cd api
-pip install -r requirements.txt
-uvicorn api:app --reload
-```
-
-#### Flask UI
-
-```bash
-cd Flask
-pip install -r requirements.txt
-python main.py
-```
-
-#### Streamlit UI
-
-```bash
-cd Streamlit
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-Make sure you have all required dependencies installed before running any component.
+UI will be available at http://localhost:19002 (Expo DevTools), and API at http://localhost:8000
 
 ## Architecture Diagram
 
@@ -173,21 +169,21 @@ Make sure you have all required dependencies installed before running any compon
 +----------------------------------------------------------------------------------------+
 
 +-------------+     +-------------+     +-------------+     +-------------+
-|  Streamlit  |     |    Flask    |     |   FastAPI   |     |   Ollama    |
-|     UI      |<--->|      UI     |<--->|   Backend   |<--->|   LLM Server|
-|  Port:8501  |     |  Port:5000  |     |  Port:8000  |     |  Port:11434 |
+|  Streamlit  |     |    Flask    |     |   FastAPI   |     |   OpenAI    |
+|     UI      |<--->|      UI     |<--->|   Backend   |<--->|   AI Server |
+|  Port:8501  |     |  Port:5000  |     |  Port:8000  |     |  Port:443   |
 +-------------+     +-------------+     +-------------+     +-------------+
                                 |
                                 v
         +------------------------[API Routes]------------------------+
         |                                                            |
 +-------------+  +---------------+  +------------------------+       |
-|    /ai/     |  |  /inventory/  |  |      /recipes/        |        |
+|    /ai/     |  |  /inventory/  |  |      /recipes/         |       |
 +-------------+  +---------------+  +------------------------+       |
         |               |                       |                    |
         v               v                       v                    |
 +-----------+  +--------------+  +-------------------------+         |
-|  Prompts  |  |  Item CRUD   |  |   Recipe Generation    |          |
+|  Prompts  |  |  Item CRUD   |  |   Recipe Generation     |         |
 +-----------+  +--------------+  +-------------------------+         |
         |               |                       |                    |
         +---------------+-----------------------+--------------------+
