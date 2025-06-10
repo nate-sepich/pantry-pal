@@ -297,7 +297,14 @@ export default function ChatScreen() {
                 <View style={styles.macrosContainer}>{renderMacroBars(it.macros)}</View>
               )}
               right={props => (
-                <IconButton {...props} icon="delete" onPress={() => removeItem(idx)} />
+                <IconButton
+                  {...props}
+                  icon="delete"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    removeItem(idx);
+                  }}
+                />
               )}
             />
           ))}

@@ -65,7 +65,13 @@ export default function ChatsTab() {
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.date}>{new Date(item.updatedAt).toLocaleDateString()}</Text>
             </View>
-            <IconButton icon="delete" onPress={() => doDelete(item.id)} />
+            <IconButton
+              icon="delete"
+              onPress={(e) => {
+                e.stopPropagation();
+                doDelete(item.id);
+              }}
+            />
           </TouchableOpacity>
         )}
       />
