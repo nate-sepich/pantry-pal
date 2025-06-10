@@ -72,6 +72,10 @@ function renderMacroBars(macros: any) {
   ));
 }
 
+function buildChatTitle(items: any[]): string {
+  return items.map(it => it.product_name).join(', ') || 'Chat';
+}
+
 function buildSystemPrompt(items: any[]): string {
   const lines = [
     'You are PantryPal, an AI culinary assistant.',
@@ -164,9 +168,11 @@ export default function ChatScreen() {
     init();
   }, [chatId, recipe]);
 
-  const regenerateChat = async (items: any[], chatIdOverride?: string) => {
+  const regenerateChat = async (items: any[], chatIdOverride?: string): Promise<void> => {
     const currentId = chatIdOverride || id;
     if (!currentId) return;
+    const newTitle = buildChatTitle(items);
+    setTitle(newTitle);
     const prompt = buildSystemPrompt(items);
     const sysMsg: ChatMessage = { role: 'system', content: prompt };
     const userMsg: ChatMessage = { role: 'user', content: 'Generate a recipe using the provided items.' };
@@ -177,32 +183,23 @@ export default function ChatScreen() {
     const newMsgs = [sysMsg, assistant];
     setMessages(newMsgs);
     setContext(items);
-    const updated: Chat = { id: currentId, title, messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
+    const updated: Chat = { id: currentId, title: newTitle, messages: newMsgs, context: items, updatedAt: new Date().toISOString() };
     await upsertChat(updated);
     await apiClient.put(`/chats/${updated.id}`, updated);
   };
 
   const removeItem = (index: number) => {
-    Alert.alert('Remove Item', 'Also remove this from your pantry?', [
-      {
-        text: 'Exclude Only',
-        style: 'cancel',
-        onPress: () => {
-          const items = context.filter((_, i) => i !== index);
-          regenerateChat(items);
-        }
-      },
-      {
-        text: 'Remove from Pantry',
-        onPress: async () => {
-          const target = context[index];
-          if (target?.id) {
-            try { await apiClient.delete(`/pantry/items/${target.id}`); } catch {}
-          }
-          const items = context.filter((_, i) => i !== index);
-          regenerateChat(items);
-        }
+    const exec = async (alsoPantry: boolean) => {
+      const target = context[index];
+      if (alsoPantry && target?.id) {
+        try { await apiClient.delete(`/pantry/items/${target.id}`); } catch {}
       }
+      const items = context.filter((_, i) => i !== index);
+      await regenerateChat(items);
+    };
+    Alert.alert('Remove Item', 'Also remove this from your pantry?', [
+      { text: 'Exclude Only', style: 'cancel', onPress: () => exec(false) },
+      { text: 'Remove from Pantry', onPress: () => exec(true) }
     ]);
   };
 
@@ -218,7 +215,7 @@ export default function ChatScreen() {
       setNewItemName('');
       setNewItemQty('');
       setAddModalVisible(false);
-      regenerateChat(items);
+      await regenerateChat(items);
     };
     Alert.alert('Add to Pantry?', 'Add this item to your pantry as well?', [
       {
