@@ -55,8 +55,8 @@ export async function refreshAuthToken(): Promise<string | null> {
     }
 
     return id_token;
-  } catch (error) {
-    console.error('Error refreshing auth token:', error.response?.data || error.message);
+  } catch (error: any) {
+    console.error('Error refreshing auth token:', (error as any).response?.data || (error as any).message);
     await logout(); // Force logout if token refresh fails
     return null;
   }

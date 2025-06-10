@@ -7,7 +7,9 @@ import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
 import { InventoryItem } from '../../src/types/InventoryItem';
-import { RecipeRequest, RecipeResponse } from '../../src/types/RecipeRequest';
+import { Chat, ChatMessage } from '../../src/types/Chat';
+import { upsertChat } from '../../src/utils/chatStore';
+
 
 export default function PantryScreen() {
   const { userToken, userId, loading, signOut } = useAuth();
@@ -91,23 +93,50 @@ export default function PantryScreen() {
     }
   };
 
-  const handleGenerate = async () => {
-    const payload: RecipeRequest = {
-      itemIds: selectedItems,
-      modifiers: {
-        servings: servings !== 1 ? servings : undefined,
-        flavorAdjustments: flavorAdjustments.length ? flavorAdjustments : undefined,
-        removeItems: removeItems.length ? removeItems : undefined,
-        overrides: overrides.length ? overrides : undefined,
-      },
-    };
-    try {
-      const res = await apiClient.post<RecipeResponse>('/openai/recipes/generate', payload);
-      const recipeParam = encodeURIComponent(JSON.stringify(res.data.recipe));
-      router.push({ pathname: '/chat', params: { recipe: recipeParam } });
-    } catch (e) {
-      console.error('Recipe generation failed', e);
+  const buildSystemPrompt = (items: InventoryItem[]): string => {
+    const lines = [
+      'You are PantryPal, an AI culinary assistant.',
+      'The user has selected:'
+    ];
+    for (const it of items) {
+      let macro = '';
+      if (it.macros) {
+        const m = it.macros as any;
+        const details = [] as string[];
+        if (m.calories) details.push(`calories: ${m.calories}`);
+        if (m.protein) details.push(`protein: ${m.protein}g`);
+        if (m.carbohydrates) details.push(`carbs: ${m.carbohydrates}g`);
+        if (m.fat) details.push(`fat: ${m.fat}g`);
+        if (details.length) macro = ' (' + details.join(', ') + ')';
+      }
+      lines.push(`- ${it.product_name}${it.quantity ? ` x${it.quantity}` : ''}${macro}`);
     }
+    if (servings > 1) lines.push(`Scale recipes to ${servings} servings.`);
+    if (flavorAdjustments.length) lines.push('Flavor adjustments: ' + flavorAdjustments.join(', '));
+    if (removeItems.length) lines.push('Do not use: ' + removeItems.join(', '));
+    if (overrides.length) {
+      lines.push('Additional notes:');
+      for (const note of overrides) lines.push(`- ${note}`);
+    }
+    lines.push('Provide recipes and suggestions based on these ingredients.');
+    lines.push(
+      'Reply in Markdown with easy to read sections for Ingredients, Steps and Total Macros.'
+    );
+    lines.push('Use bullet lists where appropriate and keep the language concise.');
+    return lines.join('\n');
+  };
+
+  const handleGenerate = async () => {
+    const selected = pantryItems.filter(p => selectedItems.includes(p.id));
+    const prompt = buildSystemPrompt(selected);
+    const sysMsg: ChatMessage = { role: 'system', content: prompt };
+    const newId = Math.random().toString(36).slice(2);
+    const itemNames = selected.map(i => i.product_name).join(', ');
+    const chatTitle = itemNames || 'New Chat';
+    const chat: Chat = { id: newId, title: chatTitle, messages: [sysMsg], context: selected, updatedAt: new Date().toISOString() };
+    await upsertChat(chat);
+    await apiClient.put(`/chats/${newId}`, chat);
+    router.push({ pathname: '/chat', params: { chatId: newId } });
   };
 
   const toggleSelect = (id: string) => {

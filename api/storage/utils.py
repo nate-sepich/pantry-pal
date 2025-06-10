@@ -172,7 +172,7 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
 
 # ─── Chat Metadata CRUD ───────────────────────────────────────────────────────
 
-from models.models import ChatMeta
+from models.models import ChatMeta, Chat
 
 
 def read_chat_meta(user_id: str) -> list[ChatMeta]:
@@ -199,6 +199,40 @@ def upsert_chat_meta(user_id: str, chat: ChatMeta) -> None:
         )
     except ClientError as e:
         logging.error("Error writing chat meta: %s", e.response["Error"]["Message"])
+        raise
+
+
+def read_chat(user_id: str, chat_id: str) -> Chat | None:
+    pk = f"USER#{user_id}"
+    try:
+        resp = pantry_table.get_item(Key={"PK": pk, "SK": f"CHATMSG#{chat_id}"})
+        item = resp.get("Item")
+        if not item:
+            return None
+        return Chat(**item)
+    except ClientError as e:
+        logging.error("Error reading chat: %s", e.response["Error"]["Message"])
+        raise
+
+
+def upsert_chat(user_id: str, chat: Chat) -> None:
+    pk = f"USER#{user_id}"
+    try:
+        data = convert_to_decimal(chat.dict())
+        pantry_table.put_item(Item={"PK": pk, "SK": f"CHATMSG#{chat.id}", **data})
+    except ClientError as e:
+        logging.error("Error writing chat: %s", e.response["Error"]["Message"])
+        raise
+
+
+def delete_chat(user_id: str, chat_id: str) -> None:
+    """Delete a chat and its metadata."""
+    pk = f"USER#{user_id}"
+    try:
+        pantry_table.delete_item(Key={"PK": pk, "SK": f"CHATMSG#{chat_id}"})
+        pantry_table.delete_item(Key={"PK": pk, "SK": f"CHAT#{chat_id}"})
+    except ClientError as e:
+        logging.error("Error deleting chat: %s", e.response["Error"]["Message"])
         raise
 
 

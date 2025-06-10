@@ -161,3 +161,12 @@ class ChatMeta(BaseModel):
     title: str
     updatedAt: str
     length: int
+
+
+class Chat(BaseModel):
+    id: str
+    title: str
+    messages: list[ChatMessage]
+    context: list | None = None
+    updatedAt: str
+    length: int | None = None
