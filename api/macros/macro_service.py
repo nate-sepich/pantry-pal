@@ -407,3 +407,4 @@ def enrich_recipe(data: dict):
             logging.info(f"Updated macros for recipe ID: {recipe_id}")
             return
     logging.warning(f"Failed to enrich recipe ID: {recipe_id}. Recipe not found.")
+
