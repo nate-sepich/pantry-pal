@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, TextInput, Text, StyleSheet, ActivityIndicator, Button } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
-
-const API_BASE = 'http://localhost:8000/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -21,7 +19,7 @@ export default function LoginScreen() {
     setLoading(true);
     setErrorMsg(''); setStatusMsg('');
     try {
-      const res = await fetch(`${API_BASE}/register`, {
+      const res = await fetch(`/auth/register`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ username, password, email }),
       });
@@ -44,7 +42,7 @@ export default function LoginScreen() {
     setLoading(true);
     setErrorMsg(''); setStatusMsg('');
     try {
-      const res = await fetch(`${API_BASE}/confirm`, {
+      const res = await fetch(`/auth/confirm`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ username, confirmation_code: code }),
       });
@@ -71,7 +69,9 @@ export default function LoginScreen() {
       // Redirect to root; Index will route based on auth state
       router.replace('/');
     } catch (e: any) {
-      setErrorMsg(String(e));
+      // Show backend error detail if available
+      const detail = e.response?.data?.detail || e.message || 'Login failed';
+      setErrorMsg(detail);
     } finally {
       setLoading(false);
     }
