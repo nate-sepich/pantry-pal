@@ -14,6 +14,10 @@ def override_get_user_id_from_token():
 
 app.dependency_overrides[get_user] = override_get_user
 app.dependency_overrides[get_user_id_from_token] = override_get_user_id_from_token
+from storage import utils
+utils.read_pantry_items = lambda user_id: []
+import pantry.pantry_service as pantry_service
+pantry_service.read_pantry_items = utils.read_pantry_items
 
 client = TestClient(app)
 

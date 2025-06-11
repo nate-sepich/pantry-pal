@@ -13,6 +13,9 @@ def override_get_user_id_from_token():
 
 app.dependency_overrides[get_user] = override_get_user
 app.dependency_overrides[get_user_id_from_token] = override_get_user_id_from_token
+from macros import macro_service
+from models.models import InventoryItemMacros
+macro_service.query_food_api = lambda name: InventoryItemMacros(protein=1) if name != "NonExistentFood" else None
 
 client = TestClient(app)
 

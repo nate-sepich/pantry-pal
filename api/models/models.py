@@ -161,3 +161,7 @@ class ChatMeta(BaseModel):
     title: str
     updatedAt: str
     length: int
+
+
+class LikedRecipe(BaseModel):
+    recipe_id: str

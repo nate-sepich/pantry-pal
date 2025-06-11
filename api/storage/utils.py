@@ -170,9 +170,49 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
         raise
 
 
+# ─── Recipe Likes CRUD ────────────────────────────────────────────────────────
+
+def add_liked_recipe(user_id: str, recipe_id: str) -> None:
+    """Mark a recipe as liked for the given user."""
+    pk = f"USER#{user_id}"
+    sk = f"LIKE#{recipe_id}"
+    try:
+        pantry_table.put_item(Item={"PK": pk, "SK": sk, "recipe_id": recipe_id})
+    except ClientError as e:
+        logging.error("Error writing liked recipe: %s", e.response["Error"]["Message"])
+        raise
+
+
+def remove_liked_recipe(user_id: str, recipe_id: str) -> None:
+    """Remove a liked recipe entry."""
+    pk = f"USER#{user_id}"
+    sk = f"LIKE#{recipe_id}"
+    try:
+        pantry_table.delete_item(Key={"PK": pk, "SK": sk})
+    except ClientError as e:
+        logging.error("Error deleting liked recipe: %s", e.response["Error"]["Message"])
+        raise
+
+
+from models.models import ChatMeta, LikedRecipe
+
+
+def read_liked_recipes(user_id: str) -> list[LikedRecipe]:
+    """Return liked recipe IDs for a user."""
+    pk = f"USER#{user_id}"
+    try:
+        resp = pantry_table.query(
+            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("LIKE#")
+        )
+        return [LikedRecipe(recipe_id=raw.get("recipe_id")) for raw in resp.get("Items", [])]
+    except ClientError as e:
+        logging.error("Error querying liked recipes: %s", e.response["Error"]["Message"])
+        raise
+
+
 # ─── Chat Metadata CRUD ───────────────────────────────────────────────────────
 
-from models.models import ChatMeta
+
 
 
 def read_chat_meta(user_id: str) -> list[ChatMeta]:
