@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
-import { Appbar, Button } from 'react-native-paper';
+import { View, Text, SafeAreaView, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import { Button } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import apiClient from '../src/api/client';
 import { ChatMessage, Chat } from '../src/types/Chat';
 import { getChat, upsertChat } from '../src/utils/chatStore';
+import { ArrowLeft, Menu } from 'lucide-react-native';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -86,35 +87,47 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title={title} />
-      </Appbar.Header>
-      <FlatList
-        data={messages}
-        keyExtractor={(_, idx) => idx.toString()}
-        renderItem={({ item }) => (
-          <View style={item.role === 'user' ? styles.userBubble : styles.botBubble}>
-            <Markdown>{item.content}</Markdown>
-          </View>
-        )}
-        contentContainerStyle={{ padding: 16 }}
-      />
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Send a message"
-        />
-        <Button mode="contained" onPress={send} style={styles.sendButton}>Send</Button>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.push('/pantry')}>
+            <ArrowLeft width={24} height={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{title}</Text>
+          <TouchableOpacity onPress={() => router.push('/pantry')}>
+            <Menu width={24} height={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </KeyboardAvoidingView>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <FlatList
+          data={messages}
+          keyExtractor={(_, idx) => idx.toString()}
+          renderItem={({ item }) => (
+            <View style={item.role === 'user' ? styles.userBubble : styles.botBubble}>
+              <Markdown>{item.content}</Markdown>
+            </View>
+          )}
+          contentContainerStyle={{ padding: 16 }}
+        />
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Send a message"
+          />
+          <Button mode="contained" onPress={send} style={styles.sendButton}>Send</Button>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  header: { backgroundColor: '#0d9488', padding: 16 },
+  headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   userBubble: {
     alignSelf: 'flex-end',
     backgroundColor: '#dcf8c6',
