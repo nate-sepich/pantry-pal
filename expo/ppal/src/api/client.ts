@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 // const API_BASE = process.env.API_BASE || 'https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/';
-const API_BASE = process.env.API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.API_BASE || 'https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod';//'http://localhost:8000';
 const apiClient = axios.create({
   baseURL: API_BASE,
 });
