@@ -6,25 +6,100 @@ Globals:
   Function:
     Timeout: 35
     MemorySize: 256
+    Environment:
+      Variables:
+        COGNITO_USER_POOL_ID:
+          Ref: PantryPalUserPool
+        COGNITO_USER_POOL_CLIENT_ID:
+          Ref: PantryPalUserPoolClient
 
 Resources:
+
+  PantryMacroDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: PantryMacroDLQ
+
+  PantryMacroQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: PantryMacroQueue
+      VisibilityTimeout: 60
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt: [PantryMacroDLQ, Arn]
+        maxReceiveCount: 5
+
+  # SQS DLQ for image generation jobs
+  ImageGenerationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ImageGenerationDLQ
+
+  # SQS queue for image generation jobs
+  ImageGenerationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ImageGenerationQueue
+      VisibilityTimeout: 60
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt: [ImageGenerationDLQ, Arn]
+        maxReceiveCount: 5
 
   PantryPalFunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
       ImageUri: !Ref PantryPalFunctionImage
+      Environment:
+        Variables:
+          MACRO_QUEUE_URL:
+            Ref: PantryMacroQueue
+          IMAGE_QUEUE_URL:
+            Ref: ImageGenerationQueue
+          IMAGE_BUCKET_NAME:
+            Ref: ImageBucket
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref PantryPalTable
+            TableName:
+              Ref: PantryPalTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref AuthTable
+            TableName:
+              Ref: AuthTable
+        - S3CrudPolicy:
+            BucketName: !Ref ImageBucket
+        - Statement:
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource:
+              Fn::GetAtt: [PantryMacroQueue, Arn]
+        - Statement:
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource:
+              Fn::GetAtt: [ImageGenerationQueue, Arn]
       Events:
         ApiEvent:
           Type: Api
           Properties:
+            RestApiId: !Ref PantryPalApi
             Path: /{proxy+}
             Method: ANY
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PantryMacroQueue.Arn
+            BatchSize: 5
+        ImageQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ImageGenerationQueue.Arn
+            BatchSize: 5
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./
@@ -56,3 +131,74 @@ Resources:
         - AttributeName: username
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+
+  PantryPalApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  PantryPalUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: PantryPalUserPool
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+
+  PantryPalUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: PantryPalUserPoolClient
+      UserPoolId: !Ref PantryPalUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+
+  # S3 bucket for pantry item images
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: "${AWS::StackName}-images"
+
+  # Public read policy for the bucket
+  ImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: ImageBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource:
+              Fn::Sub: '${ImageBucket.Arn}/*'
+
+Outputs:
+  PantryMacroQueueUrl:
+    Value:
+      Ref: PantryMacroQueue
+  PantryMacroQueueArn:
+    Value:
+      Fn::GetAtt: [PantryMacroQueue, Arn]
+  ImageBucketName:
+    Description: "Public S3 bucket for pantry item images"
+    Value:
+      Ref: ImageBucket
+  ImageBucketArn:
+    Description: "ARN of the S3 image bucket"
+    Value:
+      Fn::GetAtt: [ImageBucket, Arn]

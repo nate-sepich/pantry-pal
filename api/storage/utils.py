@@ -52,16 +52,17 @@ def read_pantry_items(user_id: str) -> list[InventoryItem]:
             macros = InventoryItemMacros(**macros_data) if macros_data else None
 
             item = InventoryItem(
-                id                  = raw["id"],
-                active              = raw.get("active", True),
-                user_id             = user_id,
-                product_name        = raw.get("product_name", ""),
-                quantity            = int(raw.get("quantity", 1)),
-                upc                 = raw.get("upc",""),
-                macros              = macros,
-                cost                = Decimal(str(raw.get("cost", 0))),
-                expiration_date     = raw.get("expiration_date", None),
+                id                   = raw["id"],
+                user_id              = user_id,
+                product_name         = raw.get("product_name", ""),
+                quantity             = int(raw.get("quantity", 1)),
+                upc                  = raw.get("upc", ""),
+                macros               = macros,
+                cost                 = Decimal(str(raw.get("cost", 0))),
+                expiration_date      = raw.get("expiration_date", None),
                 environmental_impact = Decimal(str(raw.get("environmental_impact", 0))),
+                image_url            = raw.get("image_url", None),  # Persisted S3 URL
+                active               = raw.get("active", True),
             )
             items.append(item)
         return items
@@ -166,6 +167,38 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
         raise
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
+        raise
+
+
+# ─── Chat Metadata CRUD ───────────────────────────────────────────────────────
+
+from models.models import ChatMeta
+
+
+def read_chat_meta(user_id: str) -> list[ChatMeta]:
+    """Return chat metadata entries for a user sorted by updatedAt desc."""
+    pk = f"USER#{user_id}"
+    try:
+        resp = pantry_table.query(
+            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("CHAT#")
+        )
+        items = [ChatMeta(**raw) for raw in resp.get("Items", [])]
+        items.sort(key=lambda x: x.updatedAt, reverse=True)
+        return items
+    except ClientError as e:
+        logging.error("Error querying chats: %s", e.response["Error"]["Message"])
+        raise
+
+
+def upsert_chat_meta(user_id: str, chat: ChatMeta) -> None:
+    """Insert or update a chat metadata record."""
+    pk = f"USER#{user_id}"
+    try:
+        pantry_table.put_item(
+            Item={"PK": pk, "SK": f"CHAT#{chat.id}", **chat.dict()}
+        )
+    except ClientError as e:
+        logging.error("Error writing chat meta: %s", e.response["Error"]["Message"])
         raise
 
 

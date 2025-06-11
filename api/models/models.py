@@ -6,8 +6,13 @@ from decimal import Decimal
 class UPCResponseModel(BaseModel):
     fdc_id: str
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
 class LLMChatRequest(BaseModel):
-    prompt: str
+    messages: List[ChatMessage]
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -52,6 +57,7 @@ class InventoryItem(BaseModel):
     cost: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
     expiration_date: Optional[str] = None
     environmental_impact: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
+    image_url: Optional[str] = None  # Public S3 URL for item image
     active: bool = True  # Default to active
 
     @validator("cost", "environmental_impact", pre=True, always=True)
@@ -132,3 +138,26 @@ class Recipe(BaseModel):
             )
         
         return total_macros
+
+
+class RecipeModifiers(BaseModel):
+    servings: Optional[int] = None
+    flavorAdjustments: Optional[List[str]] = None
+    removeItems: Optional[List[str]] = None
+    overrides: Optional[List[str]] = None
+
+
+class RecipeRequest(BaseModel):
+    itemIds: List[str]
+    modifiers: Optional[RecipeModifiers] = None
+
+
+class RecipeResponse(BaseModel):
+    recipe: dict
+
+
+class ChatMeta(BaseModel):
+    id: str
+    title: str
+    updatedAt: str
+    length: int

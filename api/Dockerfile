@@ -11,4 +11,4 @@ COPY . .
 COPY .env .env
 
 # Set the CMD to your Lambda handler
-CMD ["api.lambda_handler"]
+CMD ["app.lambda_handler"]
