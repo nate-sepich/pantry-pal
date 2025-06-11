@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { SafeAreaView, Image } from 'react-native';
 import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
+import { ShoppingCart, MessageCircle } from 'lucide-react-native';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
@@ -164,11 +165,9 @@ export default function PantryScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          <ActivityIndicator style={styles.centered} size="large" />
-        </ScrollView>
-      </SafeAreaView>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+        <ActivityIndicator size="large" />
+      </View>
     );
   }
 
@@ -177,196 +176,201 @@ export default function PantryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Pantry</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <ShoppingCart width={32} height={32} color="white" />
+          <Text style={styles.headerTitle}>My Pantry</Text>
+          <MessageCircle width={24} height={24} color="white" onPress={() => router.push('/chats')} />
+        </View>
       </View>
-      <FlatList
-        data={pantryItems}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={pantryItems.length < 2 ? styles.listCenter : styles.list}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Your pantry is empty.</Text>
-            <Text style={styles.emptySubtext}>Tap + to add your first item.</Text>
-          </View>
-        )}
-        renderItem={({ item }) => (
-          <Card
-            style={[
-              styles.card,
-              { width: (width - 48) / 2 },
-              selectedItems.includes(item.id) && styles.selectedCard,
-            ]}
-            onPress={() => toggleSelect(item.id)}
-          >
-            {item.imageUrl ? (
-              <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
-            ) : (
-              <View style={styles.cardPlaceholder}>
-                <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
-              </View>
-            )}
-            <Card.Content style={styles.cardBody}>
-              <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
-              <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
-              {expandedItemId === item.id && (
-                <View style={styles.macrosContainer}>
-                  {renderMacroBars(item.macros)}
-                </View>
-              )}
-            </Card.Content>
-            <Card.Actions style={styles.cardActions}>
-              <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
-                {expandedItemId === item.id ? 'Hide' : 'Info'}
-              </Button>
-              <IconButton
-                icon="delete"
-                iconColor="#ff4d4d"
-                size={20}
-                onPress={() => handleDeleteItem(item.id)}
+      <View style={styles.content}>
+       <FlatList
+         data={pantryItems}
+         keyExtractor={item => item.id}
+         numColumns={2}
+         columnWrapperStyle={styles.columnWrapper}
+         contentContainerStyle={pantryItems.length < 2 ? styles.listCenter : styles.list}
+         ListEmptyComponent={() => (
+           <View style={styles.emptyContainer}>
+             <Text style={styles.emptyText}>Your pantry is empty.</Text>
+             <Text style={styles.emptySubtext}>Tap + to add your first item.</Text>
+           </View>
+         )}
+         renderItem={({ item }) => (
+           <Card
+             style={[
+               styles.card,
+               { width: (width - 48) / 2 },
+               selectedItems.includes(item.id) && styles.selectedCard,
+             ]}
+             onPress={() => toggleSelect(item.id)}
+           >
+             {item.imageUrl ? (
+               <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
+             ) : (
+               <View style={styles.cardPlaceholder}>
+                 <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
+               </View>
+             )}
+             <Card.Content style={styles.cardBody}>
+               <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
+               <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
+               {expandedItemId === item.id && (
+                 <View style={styles.macrosContainer}>
+                   {renderMacroBars(item.macros)}
+                 </View>
+               )}
+             </Card.Content>
+             <Card.Actions style={styles.cardActions}>
+               <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
+                 {expandedItemId === item.id ? 'Hide' : 'Info'}
+               </Button>
+               <IconButton
+                 icon="delete"
+                 iconColor="#ff4d4d"
+                 size={20}
+                 onPress={() => handleDeleteItem(item.id)}
+              />
+             </Card.Actions>
+           </Card>
+         )}
+       />
+
+       {selectedItems.length > 0 && (
+         <View style={styles.modifierSection}>
+           <View style={styles.chipRow}>
+             <Chip
+               style={styles.chip}
+               selected={servings > 1}
+               onPress={() => setShowServingsPicker(true)}
+             >
+               {servings > 1 ? `${servings} Servings` : 'Scale Servings'}
+             </Chip>
+             <Chip
+               style={styles.chip}
+               selected={flavorAdjustments.includes('Less Salty')}
+               onPress={() => toggleFlavor('Less Salty')}
+             >
+               Less Salty
+             </Chip>
+             <Chip
+               style={styles.chip}
+               selected={flavorAdjustments.includes('No Carbs')}
+               onPress={() => toggleFlavor('No Carbs')}
+             >
+               No Carbs
+             </Chip>
+             {pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0) && (
+               <Chip
+                 style={styles.chip}
+                 selected={removeItems.includes(
+                   pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                 )}
+                 onPress={() =>
+                   toggleRemove(
+                     pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                   )
+                 }
+               >
+                 {`Remove ${
+                   pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
+                 }`}
+               </Chip>
+             )}
+           </View>
+           <View style={styles.overrideRow}>
+             {overrides.map(note => (
+               <Chip key={note} style={styles.chip} onClose={() => setOverrides(overrides.filter(n => n !== note))}>
+                 {note}
+               </Chip>
+             ))}
+             <PaperTextInput
+               style={styles.overrideInput}
+               mode="outlined"
+               placeholder="Add note"
+               value={overrideInput}
+               onChangeText={setOverrideInput}
+               onSubmitEditing={addOverride}
              />
-            </Card.Actions>
-          </Card>
-        )}
-      />
+           </View>
+           <Button mode="contained" onPress={handleGenerate} style={styles.generateButton}>
+             Generate Recipe
+           </Button>
+         </View>
+       )}
 
-      {selectedItems.length > 0 && (
-        <View style={styles.modifierSection}>
-          <View style={styles.chipRow}>
-            <Chip
-              style={styles.chip}
-              selected={servings > 1}
-              onPress={() => setShowServingsPicker(true)}
-            >
-              {servings > 1 ? `${servings} Servings` : 'Scale Servings'}
-            </Chip>
-            <Chip
-              style={styles.chip}
-              selected={flavorAdjustments.includes('Less Salty')}
-              onPress={() => toggleFlavor('Less Salty')}
-            >
-              Less Salty
-            </Chip>
-            <Chip
-              style={styles.chip}
-              selected={flavorAdjustments.includes('No Carbs')}
-              onPress={() => toggleFlavor('No Carbs')}
-            >
-              No Carbs
-            </Chip>
-            {pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0) && (
-              <Chip
-                style={styles.chip}
-                selected={removeItems.includes(
-                  pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
-                )}
-                onPress={() =>
-                  toggleRemove(
-                    pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
-                  )
-                }
-              >
-                {`Remove ${
-                  pantryItems.find(p => selectedItems.includes(p.id) && p.quantity === 0)!.product_name
-                }`}
-              </Chip>
-            )}
-          </View>
-          <View style={styles.overrideRow}>
-            {overrides.map(note => (
-              <Chip key={note} style={styles.chip} onClose={() => setOverrides(overrides.filter(n => n !== note))}>
-                {note}
-              </Chip>
-            ))}
-            <PaperTextInput
-              style={styles.overrideInput}
-              mode="outlined"
-              placeholder="Add note"
-              value={overrideInput}
-              onChangeText={setOverrideInput}
-              onSubmitEditing={addOverride}
-            />
-          </View>
-          <Button mode="contained" onPress={handleGenerate} style={styles.generateButton}>
-            Generate Recipe
-          </Button>
-        </View>
-      )}
+       {/* Floating Add Button */}
+       <FAB
+         icon="plus"
+         style={styles.fab}
+         onPress={() => setAddModalVisible(true)}
+       />
 
-      {/* Floating Add Button */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => setAddModalVisible(true)}
-      />
+       {/* Add Item Modal */}
+       <Modal visible={addModalVisible} animationType="slide" transparent>
+         <View style={styles.modalOverlay}>
+           <View style={styles.addSheet}>
+             <Text style={styles.addTitle}>Add Item</Text>
+             <PaperTextInput
+               style={styles.addInput}
+               mode="outlined"
+               placeholder="Item name"
+               value={itemName}
+               onChangeText={setItemName}
+             />
+             <PaperTextInput
+               style={styles.addInput}
+               mode="outlined"
+               placeholder="Quantity"
+               keyboardType="numeric"
+               value={itemQuantity}
+               onChangeText={setItemQuantity}
+             />
+             <Button
+               mode="contained"
+               style={styles.addButton}
+               buttonColor="#0a7ea4"
+               onPress={() => {
+                 handleAddItem();
+                 setAddModalVisible(false);
+               }}
+             >
+               Save
+             </Button>
+             <Button mode="text" textColor="#0a7ea4" onPress={() => setAddModalVisible(false)}>
+               Cancel
+             </Button>
+           </View>
+         </View>
+       </Modal>
 
-      {/* Add Item Modal */}
-      <Modal visible={addModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.addSheet}>
-            <Text style={styles.addTitle}>Add Item</Text>
-            <PaperTextInput
-              style={styles.addInput}
-              mode="outlined"
-              placeholder="Item name"
-              value={itemName}
-              onChangeText={setItemName}
-            />
-            <PaperTextInput
-              style={styles.addInput}
-              mode="outlined"
-              placeholder="Quantity"
-              keyboardType="numeric"
-              value={itemQuantity}
-              onChangeText={setItemQuantity}
-            />
-            <Button
-              mode="contained"
-              style={styles.addButton}
-              buttonColor="#0a7ea4"
-              onPress={() => {
-                handleAddItem();
-                setAddModalVisible(false);
-              }}
-            >
-              Save
-            </Button>
-            <Button mode="text" textColor="#0a7ea4" onPress={() => setAddModalVisible(false)}>
-              Cancel
-            </Button>
-          </View>
-        </View>
-      </Modal>
+       <Modal visible={showServingsPicker} transparent animationType="fade">
+         <View style={styles.modalOverlay}>
+           <View style={styles.addSheet}>
+             <Text style={styles.addTitle}>Servings</Text>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+               <IconButton icon="minus" onPress={() => setServings(Math.max(1, servings - 1))} />
+               <Text>{servings}</Text>
+               <IconButton icon="plus" onPress={() => setServings(Math.min(8, servings + 1))} />
+             </View>
+             <Button onPress={() => setShowServingsPicker(false)}>Done</Button>
+           </View>
+         </View>
+       </Modal>
 
-      <Modal visible={showServingsPicker} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.addSheet}>
-            <Text style={styles.addTitle}>Servings</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <IconButton icon="minus" onPress={() => setServings(Math.max(1, servings - 1))} />
-              <Text>{servings}</Text>
-              <IconButton icon="plus" onPress={() => setServings(Math.min(8, servings + 1))} />
-            </View>
-            <Button onPress={() => setShowServingsPicker(false)}>Done</Button>
-          </View>
-        </View>
-      </Modal>
-
+     </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
-  container: { flexGrow: 1, padding: 16 },
+  header: { backgroundColor: '#0d9488', padding: 16 },
+  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+  content: { flex: 1, padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
   logoutButton: { backgroundColor: '#0a7ea4', padding: 8, borderRadius: 8 },
   logoutButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
@@ -418,7 +422,6 @@ const styles = StyleSheet.create({
   },
 
   recipeContainer: { marginTop: 16, padding: 16, backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
-  recipeText: { fontSize: 16, lineHeight: 24 },
   macrosContainer: { marginTop: 8 },
   macroRow: { marginBottom: 6 },
   macroText: { fontSize: 12, marginBottom: 2 },
