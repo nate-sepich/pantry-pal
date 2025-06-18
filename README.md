@@ -27,6 +27,7 @@ Intelligent meal planning system featuring:
 - 🥗 Dietary restriction compliance
 - 🔄 Dynamic serving size adjustments
 - 🕒 Timezone-aware meal planning
+- ❤️ Swipe-based recipe discovery with offline fallback
 
 ### 3. Secure User Management
 <div align="center">
@@ -205,6 +206,7 @@ Key Features:
 │ • LLM Integration   │
 │ • Macro Tracking    │
 │ • Recipe Gen        │
+│ • Swipe Interface   │
 └─────────────────────┘
 ```
 

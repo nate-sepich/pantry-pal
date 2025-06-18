@@ -4,8 +4,11 @@ import Swiper from 'react-native-deck-swiper';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import sampleRecipes from '../../assets/sampleRecipes.json';
+
+// TODO: render images and macros once the API provides them
 import { RecipeCard } from '../../src/types/RecipeCard';
 
+// Simple deck for browsing recipe suggestions.
 export default function SwipeScreen() {
   const { userToken } = useAuth();
   const [cards, setCards] = useState<RecipeCard[]>(sampleRecipes as RecipeCard[]);

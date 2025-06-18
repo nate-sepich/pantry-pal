@@ -164,4 +164,6 @@ class ChatMeta(BaseModel):
 
 
 class LikedRecipe(BaseModel):
+    """Record representing a recipe liked by a user."""
+
     recipe_id: str

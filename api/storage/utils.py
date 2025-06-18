@@ -5,7 +5,14 @@ from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 from datetime import datetime
 from decimal import Decimal
-from models.models import InventoryItem, InventoryItemMacros, Recipe, User
+from models.models import (
+    InventoryItem,
+    InventoryItemMacros,
+    Recipe,
+    User,
+    ChatMeta,
+    LikedRecipe,
+)
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -192,9 +199,6 @@ def remove_liked_recipe(user_id: str, recipe_id: str) -> None:
     except ClientError as e:
         logging.error("Error deleting liked recipe: %s", e.response["Error"]["Message"])
         raise
-
-
-from models.models import ChatMeta, LikedRecipe
 
 
 def read_liked_recipes(user_id: str) -> list[LikedRecipe]:
