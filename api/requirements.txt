@@ -11,3 +11,4 @@ pytz==2024.1
 openai>=1.0.0
 mangum
 boto3
+recipe-scrapers

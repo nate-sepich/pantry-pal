@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 from api.app import app
-from api.pantry.pantry_service import get_user, get_user_id_from_token
+from pantry.pantry_service import get_user, get_user_id_from_token
+from macros import macro_service
+from models.models import InventoryItemMacros
 
 class DummyUser:
     id = "testuser"
@@ -13,6 +15,13 @@ def override_get_user_id_from_token():
 
 app.dependency_overrides[get_user] = override_get_user
 app.dependency_overrides[get_user_id_from_token] = override_get_user_id_from_token
+
+def dummy_query(name):
+    if name == "Rice":
+        return InventoryItemMacros(protein=1)
+    return None
+
+macro_service.query_food_api = dummy_query
 
 client = TestClient(app)
 

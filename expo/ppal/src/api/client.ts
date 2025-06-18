@@ -19,6 +19,10 @@ export const cookbookApi = {
     const res = await apiClient.post<Recipe>('/cookbook', recipe);
     return res.data;
   },
+  async importRecipe(url: string): Promise<Recipe> {
+    const res = await apiClient.post<Recipe>('/cookbook/import', { url });
+    return res.data;
+  },
   async deleteRecipe(id: string) {
     return apiClient.delete(`/cookbook/${id}`);
   },

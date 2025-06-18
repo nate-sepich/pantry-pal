@@ -79,6 +79,8 @@ export default function CookbookPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [importVisible, setImportVisible] = useState<boolean>(false);
+  const [importUrl, setImportUrl] = useState<string>('');
 
   const fetchRecipes = useCallback(async () => {
     try {
@@ -87,7 +89,7 @@ export default function CookbookPage() {
         id: r.id,
         title: r.name,
         image: r.image_url || 'https://via.placeholder.com/300x400',
-        ingredients: r.ingredients?.map((i) => i.item.product_name) || [],
+        ingredients: r.ingredients || [],
       }));
       setRecipes(mapped);
     } catch (e) {
@@ -106,6 +108,18 @@ export default function CookbookPage() {
     console.log('Preview:', recipe.title);
     setSelectedRecipe(recipe);
     setModalVisible(true);
+  };
+
+  const handleImport = async () => {
+    if (!importUrl) return;
+    try {
+      const newRec = await cookbookApi.importRecipe(importUrl);
+      setRecipes([...recipes, { id: newRec.id, title: newRec.name, image: newRec.image_url || 'https://via.placeholder.com/300x400', ingredients: newRec.ingredients || [] }]);
+      setImportUrl('');
+      setImportVisible(false);
+    } catch (e) {
+      console.error('Import failed', e);
+    }
   };
 
   return (
@@ -144,11 +158,22 @@ export default function CookbookPage() {
           </View>
         </Pressable>
       </Modal>
+      <Modal visible={importVisible} transparent animationType="slide" onRequestClose={() => setImportVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setImportVisible(false)}>
+          <View style={styles.modalContent}>
+            <Text style={{ marginBottom: 8 }}>Paste recipe URL</Text>
+            <TextInput style={styles.searchInput} value={importUrl} onChangeText={setImportUrl} autoCapitalize="none" />
+            <TouchableOpacity style={[styles.closeButton,{position:'relative', marginTop:12}]} onPress={handleImport}>
+              <Text style={{color:'white'}}>Import</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <ChefHat width={32} height={32} color="white" />
           <Text style={styles.headerTitle}>Cookbook Gallery</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setImportVisible(true)}>
             <Menu width={24} height={24} color="white" />
           </TouchableOpacity>
         </View>
