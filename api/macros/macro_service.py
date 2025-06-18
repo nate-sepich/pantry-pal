@@ -1,12 +1,19 @@
 import asyncio
 import os
+from decimal import Decimal
 from fastapi import APIRouter, HTTPException, Depends, Request
 import httpx
 import requests
-from pydantic import BaseModel
 from typing import Optional, List
 from dotenv import load_dotenv
-from models.models import InventoryItemMacros, RecipeInput, UPCResponseModel
+from models.models import (
+    InventoryItemMacros,
+    RecipeInput,
+    UPCResponseModel,
+    FoodSuggestion,
+    FoodCategory,
+    ItemMacroRequest,
+)
 import logging
 from storage.utils import read_pantry_items, write_pantry_items, read_recipe_items
 from pantry.pantry_service import get_current_user
@@ -19,24 +26,75 @@ USDA_API_KEY = os.getenv('USDA_API_KEY')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+CATEGORY_MAP = {
+    "dairy": FoodCategory.DAIRY,
+    "egg": FoodCategory.DAIRY,
+    "meat": FoodCategory.MEAT,
+    "poultry": FoodCategory.MEAT,
+    "pork": FoodCategory.MEAT,
+    "beef": FoodCategory.MEAT,
+    "fish": FoodCategory.SEAFOOD,
+    "seafood": FoodCategory.SEAFOOD,
+    "grain": FoodCategory.CARBS,
+    "cereal": FoodCategory.CARBS,
+    "bakery": FoodCategory.CARBS,
+    "oil": FoodCategory.FATS,
+    "fat": FoodCategory.FATS,
+    "vegetable": FoodCategory.VEGETABLES,
+    "fruit": FoodCategory.FRUITS,
+    "beverage": FoodCategory.BEVERAGES,
+    "drink": FoodCategory.BEVERAGES,
+}
+
+UNIT_CONVERSIONS = {
+    "g": Decimal("1"),
+    "kg": Decimal("1000"),
+    "oz": Decimal("28.3495"),
+    "lb": Decimal("453.592"),
+    "ml": Decimal("1"),
+    "l": Decimal("1000"),
+    "fl_oz": Decimal("29.5735"),
+}
+
+def map_food_category(raw: str) -> FoodCategory:
+    lower = (raw or "").lower()
+    for key, cat in CATEGORY_MAP.items():
+        if key in lower:
+            return cat
+    return FoodCategory.OTHER
+
+def convert_to_grams(qty: Decimal, unit: str) -> Decimal:
+    factor = UNIT_CONVERSIONS.get(unit.lower())
+    if factor is None:
+        raise HTTPException(status_code=400, detail="Unsupported unit")
+    return qty * factor
+
 # Define an async function to search for food items using the USDA FoodData Central API
 async def search_food_item_async(item_name: str) -> Optional[int]:
-    """
-    Asynchronous search for food items using the USDA FoodData Central API.
-    Returns the fdcId of the first result, or None if no result is found.
-    """
-    search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
-    params = {
-        'query': item_name
-    }
+    """Return the FDC id for the first matching item name."""
+    search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+    params = {"api_key": USDA_API_KEY, "query": item_name}
     async with httpx.AsyncClient() as client:
-        response = await client.get(search_url, params=params)
-        print(response)
-        if response.status_code == 200:
-            search_data = response.json()
-            if search_data['foods']:
-                return search_data['foods'][0]['fdcId']
+        resp = await client.get(search_url, params=params)
+    if resp.status_code == 200:
+        data = resp.json()
+        foods = data.get("foods", [])
+        if foods:
+            return foods[0]["fdcId"]
     return None
+
+
+async def search_food_items_async(query: str) -> List[dict]:
+    """Return a list of USDA search results for the given query."""
+    search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+    params = {"api_key": USDA_API_KEY, "query": query}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(search_url, params=params)
+    if resp.status_code == 200:
+        data = resp.json()
+        return data.get("foods", [])
+    logging.error(f"USDA search failed: {resp.status_code}")
+    raise HTTPException(status_code=resp.status_code, detail="Error fetching suggestions")
 
 # Define an async function to fetch food details using the USDA FoodData Central API
 async def fetch_food_details_async(fdc_id: int, format: str = 'full', nutrients: Optional[List[int]] = None) -> Optional[InventoryItemMacros]:
@@ -128,7 +186,6 @@ def fetch_food_details(fdc_id: int, format: str = 'full', nutrients: Optional[Li
         params['nutrients'] = ','.join(map(str, nutrients))
     
     response = requests.get(detail_url, params=params)
-    print(response)
     if response.status_code == 200:
         food_data = response.json()
         nutrients = {nutrient['nutrient']['name']: nutrient['amount'] for nutrient in food_data.get('foodNutrients', [])}
@@ -169,25 +226,33 @@ def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
     
     return None
 
-@macro_router.get("/item")
-def get_item_macros(item_name: str):
-    """
-    Retrieve macro-nutrient information for a given food item using the USDA FoodData Central API.
-
-    Parameters:
-        item_name (str): The name of the food item to look up (query parameter).
-    Returns:
-        InventoryItemMacros: Macro-nutrient data for the item, or an error message if not found.
-    Error Codes:
-        400: Bad request if item_name is missing or invalid.
-        404: Item not found or data unavailable.
-    """
-    macro_data = query_food_api(item_name)
-    print(macro_data)
-    if macro_data:
-        return macro_data
-    else:
-        return {"error": "Item not found or data unavailable"}
+@macro_router.post("/item", response_model=InventoryItemMacros)
+async def get_item_macros(req: ItemMacroRequest):
+    """Lookup macros for a single food item and scale by quantity."""
+    macro_data = await query_food_api_async(req.item_name)
+    if not macro_data:
+        raise HTTPException(status_code=404, detail="Item not found")
+    grams = convert_to_grams(req.quantity, req.unit)
+    factor = grams / Decimal(100)
+    return InventoryItemMacros(
+        calories=macro_data.calories * factor,
+        protein=macro_data.protein * factor,
+        carbohydrates=macro_data.carbohydrates * factor,
+        fiber=macro_data.fiber * factor,
+        sugar=macro_data.sugar * factor,
+        fat=macro_data.fat * factor,
+        saturated_fat=macro_data.saturated_fat * factor,
+        polyunsaturated_fat=macro_data.polyunsaturated_fat * factor,
+        monounsaturated_fat=macro_data.monounsaturated_fat * factor,
+        trans_fat=macro_data.trans_fat * factor,
+        cholesterol=macro_data.cholesterol * factor,
+        sodium=macro_data.sodium * factor,
+        potassium=macro_data.potassium * factor,
+        vitamin_a=macro_data.vitamin_a * factor,
+        vitamin_c=macro_data.vitamin_c * factor,
+        calcium=macro_data.calcium * factor,
+        iron=macro_data.iron * factor,
+    )
     
 
 @macro_router.post("/recipe")
@@ -300,55 +365,41 @@ def get_total_macros(user_claims: dict = Depends(get_current_user)):
             total_macros.iron += item["macros"].get("iron", 0)
     return total_macros
 
-@macro_router.get("/autocomplete")
-async def autocomplete(query: str):
-    """
-    Provide top 5 autocomplete suggestions for food items based on the query using the USDA API.
-
-    Parameters:
-        query (str): The search query for food item names (query parameter).
-    Returns:
-        dict: A dictionary with a list of up to 5 suggestion strings.
-    Error Codes:
-        400: Bad request if query is missing or invalid.
-        500: Error fetching suggestions from USDA API.
-    """
+@macro_router.get("/autocomplete", response_model=List[FoodSuggestion])
+async def autocomplete(query: str, category: Optional[FoodCategory] = None):
+    """Return up to five autocomplete suggestions."""
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="query cannot be blank")
     logging.info(f"Providing autocomplete suggestions for query: {query}")
-    """
-    Provide top 5 autocomplete suggestions based on the query using USDA API.
-    """
-    search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
-    params = {
-        'query': query
-    }
-    async with httpx.AsyncClient() as client:
-        response = await client.get(search_url, params=params)
-        if response.status_code == 200:
-            search_data = response.json()
-            suggestions = [food['brandOwner'] for food in search_data.get('foods', [])]
-            return {"suggestions": suggestions[:5]}
-        else:
-            logging.error(f"Error fetching autocomplete suggestions: {response.status_code}")
-            raise HTTPException(status_code=response.status_code, detail="Error fetching autocomplete suggestions")
+    foods = await search_food_items_async(query)
+    suggestions: List[FoodSuggestion] = []
+    for food in foods:
+        cat = map_food_category(food.get("foodCategory", ""))
+        if category and cat != category:
+            continue
+        suggestions.append(
+            FoodSuggestion(name=food.get("description", ""), fdc_id=str(food.get("fdcId")), category=cat)
+        )
+        if len(suggestions) >= 5:
+            break
+    return suggestions
 
-@macro_router.get("/UPC", response_model=UPCResponseModel)
-def get_total_macros(upc_code: str):
+@macro_router.get("/upc", response_model=UPCResponseModel)
+def lookup_upc(upc: str):
     """
     Retrieve the FDC ID for a food item using its UPC code via the USDA API.
 
     Parameters:
-        upc_code (str): The UPC code of the food item (query parameter).
+        upc (str): The UPC code of the food item (query parameter).
     Returns:
         UPCResponseModel: The FDC ID for the item, or None if not found.
     Error Codes:
         404: Item not found for the given UPC code.
     """
-    fdc_id = search_food_item(upc_code)
-    if fdc_id == None:
-        upc_code =+ upc_code
-        fdc_id = search_food_item(upc_code)
-    response = UPCResponseModel(fdc_id = fdc_id)
-    return response
+    fdc_id = search_food_item(upc)
+    if not fdc_id:
+        raise HTTPException(status_code=404, detail="Item not found for UPC")
+    return UPCResponseModel(fdc_id=str(fdc_id))
 
 def enrich_item(data: dict):
     """

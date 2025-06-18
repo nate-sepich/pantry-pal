@@ -15,6 +15,8 @@ PantryPal provides comprehensive nutritional insights:
 - 🔍 Smart ingredient auto-completion
 - ⚖️ Per-serving nutritional scaling
 - 📈 Full pantry nutritional analytics
+- 📂 Category-based food suggestions
+- ⚖️ Flexible quantity units
 
 ### 2. AI-Powered Recipe Generation
 <div align="center">
@@ -207,6 +209,14 @@ Key Features:
 │ • Recipe Gen        │
 └─────────────────────┘
 ```
+
+## Macro API
+
+These endpoints provide nutrient lookup utilities.
+
+- `POST /macros/item` – lookup macros for a food name and quantity.
+- `GET /macros/autocomplete` – suggest items with optional `category` filter.
+- `GET /macros/upc` – fetch the USDA identifier for a UPC code.
 
 ## Future Enhancements
 - Custom model fine-tuning for recipe generation

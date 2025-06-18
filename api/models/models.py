@@ -1,7 +1,8 @@
 import uuid
+from enum import Enum
+from decimal import Decimal
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
-from decimal import Decimal
 
 class UPCResponseModel(BaseModel):
     fdc_id: str
@@ -161,3 +162,45 @@ class ChatMeta(BaseModel):
     title: str
     updatedAt: str
     length: int
+
+
+class FoodCategory(str, Enum):
+    """High-level food category used for autocomplete filtering."""
+
+    DAIRY = "dairy"
+    MEAT = "meat"
+    SEAFOOD = "seafood"
+    CARBS = "carbs"
+    FATS = "fats"
+    VEGETABLES = "vegetables"
+    FRUITS = "fruits"
+    BEVERAGES = "beverages"
+    OTHER = "other"
+
+
+class FoodSuggestion(BaseModel):
+    """Autocomplete suggestion with USDA id and category."""
+
+    name: str
+    fdc_id: Optional[str] = None
+    category: FoodCategory = FoodCategory.OTHER
+
+
+class ItemMacroRequest(BaseModel):
+    """Request model for manual item macro lookup."""
+
+    item_name: str
+    quantity: Decimal = Decimal(100)
+    unit: str = "g"
+
+    @validator("item_name")
+    def validate_name(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("item_name cannot be blank")
+        return v
+
+    @validator("quantity")
+    def validate_qty(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("quantity must be positive")
+        return v
