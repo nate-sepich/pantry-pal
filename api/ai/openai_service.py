@@ -75,7 +75,7 @@ def build_item_image_prompt(item_name: str) -> str:
     """Return a detailed prompt for generating a photo-realistic image of the item."""
     return (
         f"Photo-realistic studio photograph of {item_name} on a clean neutral "
-        "background, soft natural lighting, crisp focus, minimal props."
+        "background, soft natural lighting, crisp focus, no props except plates."
     )
 
 @openai_router.get("/meal_recommendation")
