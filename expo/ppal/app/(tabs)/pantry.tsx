@@ -31,8 +31,6 @@ export default function PantryScreen() {
 
   useEffect(() => {
     if (userToken) {
-      console.log('User token found:', userToken);
-      console.log('User ID:', userId); // Debugging log for userId
       fetchPantry();
     } else {
       console.warn('No user token found. Please log in.');
@@ -42,7 +40,6 @@ export default function PantryScreen() {
   const fetchPantry = async () => {
     try {
       const res = await apiClient.get<InventoryItem[]>('/pantry/items');
-      console.log('Fetched pantry items:', res.data);
       // Filter active items and map image_url to imageUrl
       const activeItems = res.data
         .filter((item: InventoryItem) => item.active)
@@ -63,12 +60,10 @@ export default function PantryScreen() {
     }
 
     try {
-      console.log('Sending API request to add item:', { product_name: itemName, quantity: Number(itemQuantity) });
       const response = await apiClient.post('/pantry/items', {
         product_name: itemName,
         quantity: Number(itemQuantity),
       });
-      console.log('Item added successfully:', response.data);
       setItemName('');
       setItemQuantity('');
       fetchPantry(); // Refresh the pantry list
@@ -79,13 +74,10 @@ export default function PantryScreen() {
 
   const handleDeleteItem = async (id: string) => {
     try {
-      console.log(`Sending request to soft delete item with ID: ${id}`);
-      
       // Optimistically update the UI by removing the item from the state
       setPantryItems(prevItems => prevItems.filter(item => item.id !== id));
 
       await apiClient.delete(`/pantry/items/${id}`); // Soft delete the item
-      console.log(`Item with ID: ${id} marked as inactive.`);
     } catch (e: any) {
       console.error(`Error soft deleting item with ID: ${id}`, e);
       // Optionally, refetch the pantry items to ensure consistency
