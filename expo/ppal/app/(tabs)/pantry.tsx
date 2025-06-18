@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView, Image } from 'react-native';
 import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
+import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import { ShoppingCart, MessageCircle } from 'lucide-react-native';
 import apiClient from '../../src/api/client';
@@ -9,6 +10,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
 import { InventoryItem } from '../../src/types/InventoryItem';
 import { RecipeRequest, RecipeResponse } from '../../src/types/RecipeRequest';
+import { FoodCategory, FoodSuggestion } from '../../src/types/Food';
 
 export default function PantryScreen() {
   const { userToken, userId, loading, signOut } = useAuth();
@@ -24,6 +26,9 @@ export default function PantryScreen() {
   const [overrides, setOverrides] = useState<string[]>([]);
   const [itemName, setItemName] = useState('');
   const [itemQuantity, setItemQuantity] = useState('');
+  const [itemUnit, setItemUnit] = useState('g');
+  const [categoryFilter, setCategoryFilter] = useState<FoodCategory | 'all'>('all');
+  const [suggestions, setSuggestions] = useState<FoodSuggestion[]>([]);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const { width } = Dimensions.get('window');
   // Images are auto-generated upon item creation via the API
@@ -37,6 +42,10 @@ export default function PantryScreen() {
       console.warn('No user token found. Please log in.');
     }
   }, [userToken]);
+
+  useEffect(() => {
+    fetchSuggestions(itemName);
+  }, [itemName, categoryFilter]);
 
   const fetchPantry = async () => {
     try {
@@ -55,6 +64,21 @@ export default function PantryScreen() {
     }
   };
 
+  const fetchSuggestions = async (text: string) => {
+    if (text.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const params: any = { query: text };
+      if (categoryFilter !== 'all') params.category = categoryFilter;
+      const res = await apiClient.get<FoodSuggestion[]>('/macros/autocomplete', { params });
+      setSuggestions(res.data);
+    } catch (e) {
+      console.warn('Autocomplete failed', e);
+    }
+  };
+
   const handleAddItem = async () => {
     if (!itemName || !itemQuantity) {
       console.error('Error: Item name or quantity is missing.');
@@ -62,14 +86,20 @@ export default function PantryScreen() {
     }
 
     try {
-      console.log('Sending API request to add item:', { product_name: itemName, quantity: Number(itemQuantity) });
+      const macroRes = await apiClient.post('/macros/item', {
+        item_name: itemName,
+        quantity: Number(itemQuantity),
+        unit: itemUnit,
+      });
       const response = await apiClient.post('/pantry/items', {
         product_name: itemName,
         quantity: Number(itemQuantity),
+        macros: macroRes.data,
       });
       console.log('Item added successfully:', response.data);
       setItemName('');
       setItemQuantity('');
+      setSuggestions([]);
       fetchPantry(); // Refresh the pantry list
     } catch (e: any) {
       console.error('Error adding item:', e);
@@ -312,26 +342,54 @@ export default function PantryScreen() {
          <View style={styles.modalOverlay}>
            <View style={styles.addSheet}>
              <Text style={styles.addTitle}>Add Item</Text>
-             <PaperTextInput
-               style={styles.addInput}
-               mode="outlined"
-               placeholder="Item name"
-               value={itemName}
-               onChangeText={setItemName}
-             />
-             <PaperTextInput
-               style={styles.addInput}
-               mode="outlined"
-               placeholder="Quantity"
-               keyboardType="numeric"
-               value={itemQuantity}
-               onChangeText={setItemQuantity}
-             />
-             <Button
-               mode="contained"
-               style={styles.addButton}
-               buttonColor="#0a7ea4"
-               onPress={() => {
+            <Picker
+              selectedValue={categoryFilter}
+              style={styles.picker}
+              onValueChange={(v) => setCategoryFilter(v as FoodCategory | 'all')}
+            >
+              <Picker.Item label="All Categories" value="all" />
+              {Object.values(FoodCategory).map(cat => (
+                <Picker.Item key={cat} label={cat} value={cat} />
+              ))}
+            </Picker>
+            <PaperTextInput
+              style={styles.addInput}
+              mode="outlined"
+              placeholder="Item name"
+              value={itemName}
+              onChangeText={setItemName}
+            />
+            {suggestions.length > 0 && (
+              <View style={styles.suggestionBox}>
+                {suggestions.map(s => (
+                  <TouchableOpacity key={s.fdc_id || s.name} onPress={() => { setItemName(s.name); setSuggestions([]); }}>
+                    <Text style={styles.suggestionText}>{s.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <PaperTextInput
+              style={styles.addInput}
+              mode="outlined"
+              placeholder="Quantity"
+              keyboardType="numeric"
+              value={itemQuantity}
+              onChangeText={setItemQuantity}
+            />
+            <Picker
+              selectedValue={itemUnit}
+              style={styles.picker}
+              onValueChange={(v) => setItemUnit(v)}
+            >
+              {['g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz'].map(u => (
+                <Picker.Item key={u} label={u} value={u} />
+              ))}
+            </Picker>
+            <Button
+              mode="contained"
+              style={styles.addButton}
+              buttonColor="#0a7ea4"
+              onPress={() => {
                  handleAddItem();
                  setAddModalVisible(false);
                }}
@@ -403,6 +461,9 @@ const styles = StyleSheet.create({
   addSheet: { backgroundColor:'#fff', padding:16, borderTopLeftRadius:12, borderTopRightRadius:12 },
   addTitle: { fontSize:20, fontWeight:'bold', marginBottom:12 },
   addInput: { borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, marginBottom:12 },
+  picker: { marginBottom: 12 },
+  suggestionBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, maxHeight: 120, marginBottom: 12 },
+  suggestionText: { padding: 8 },
   addButton: { marginBottom:8 },
   fab: {
     position: 'absolute',

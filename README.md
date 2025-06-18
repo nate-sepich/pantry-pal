@@ -17,6 +17,7 @@ PantryPal provides comprehensive nutritional insights:
 - 📈 Full pantry nutritional analytics
 - 📂 Category-based food suggestions
 - ⚖️ Flexible quantity units
+- 📝 Pantry page autocomplete with category filter
 
 ### 2. AI-Powered Recipe Generation
 <div align="center">
