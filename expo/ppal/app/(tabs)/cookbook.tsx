@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
@@ -11,12 +11,10 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { Heart, Globe, Clock, Star, ChefHat, Menu, X, ShoppingCart, LucideProps } from 'lucide-react-native'; // Import LucideProps
-import pizzaImg from '../assets/images/margherita-pizza.jpg';
-import tacosImg from '../assets/images/tacos.png';
-import cakeImg from '../assets/images/cake.png';
-import curryImg from '../assets/images/curry.png';
-import breadImg from '../assets/images/bread.png';
+import { Star, ChefHat, Menu, X, ShoppingCart, LucideProps } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
+import { cookbookApi } from '../../src/api/client';
+import { Recipe as ApiRecipe } from '../../src/types/Recipe';
 
 interface Recipe {
   id: string;
@@ -28,11 +26,6 @@ interface Recipe {
   ingredients?: string[];
 }
 
-interface Tab {
-  id: 'all' | 'favorites' | 'web' | 'recent' | 'recentlyAdded' | 'bookmarked';
-  label: string;
-  icon: React.ComponentType<LucideProps>; // Updated to use LucideProps
-}
 
 // RecipeCard Component
 export const RecipeCard: React.FC<{
@@ -80,37 +73,33 @@ export const RecipeGallery: React.FC<{
 );
 
 export default function CookbookPage() {
-  // State to track the currently active tab
-  const [activeTab, setActiveTab] = useState<Tab['id']>('all');
-
-  // State to store the recipes categorized by type
-  const [recipes] = useState<Record<'favorites' | 'web' | 'recentlyAdded' | 'bookmarked', Recipe[]>>({
-    favorites: [
-      { id: '1', title: 'Classic Margherita Pizza', image: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.ricardocuisine.com%2Fservices%2Frecipes%2Fpizza-1498148703.jpg&f=1&nofb=1&ipt=f58b25b39d225a4a5b665581df8ef35b2b16df1341f7f5efa3d00048ec532daf', cookTime: '25 min', rating: 5, category: 'Italian' },
-      { id: '2', title: 'Garlic Lemon Pasta', image: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ffrenchbydesignblog.com%2Fwp-content%2Fuploads%2F2022%2F02%2Fgarlic-lemon-pasta.jpg&f=1&nofb=1&ipt=9b56f9763b77b15be323705d5e75fb0508e8a0c981455d15491b75bc6b8681bb', cookTime: '20 min', rating: 4.5, category: 'Pasta' },
-    ],
-    web: [
-      { id: '3', title: 'Thai Green Curry', image: 'https://via.placeholder.com/300x400', cookTime: '35 min', rating: 4.8, category: 'Asian' },
-    ],
-    recentlyAdded: [
-      { id: '4', title: 'Mushroom Risotto', image: 'https://via.placeholder.com/300x400', cookTime: '40 min', rating: 4.6, category: 'Italian' },
-    ],
-    bookmarked: [
-      { id: '5', title: 'Banana Bread', image: 'https://via.placeholder.com/300x400', cookTime: '60 min', rating: 4.9, category: 'Baking' },
-    ],
-  });
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   // State to store the user's search query from the search input
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // State to store the currently selected recipe for the modal preview
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-
-  // State to control the visibility of the modal
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
-  // State to store pantry recipe suggestions
-  const [pantryRecipeSuggestions] = useState<Recipe[]>([]);
+  const fetchRecipes = useCallback(async () => {
+    try {
+      const data = await cookbookApi.getRecipes();
+      const mapped = data.map((r: ApiRecipe) => ({
+        id: r.id,
+        title: r.name,
+        image: r.image_url || 'https://via.placeholder.com/300x400',
+        ingredients: r.ingredients?.map((i) => i.item.product_name) || [],
+      }));
+      setRecipes(mapped);
+    } catch (e) {
+      console.error('Failed to load recipes', e);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecipes();
+    }, [fetchRecipes])
+  );
 
   // Handle long press on a recipe card
   const handleLongPress = (recipe: Recipe) => {
@@ -171,65 +160,13 @@ export default function CookbookPage() {
           onChangeText={setSearchQuery}
         />
       </View>
-      <View style={styles.tabs}>
-        {([
-          { id: 'all', label: 'All Recipes', icon: Star },
-          { id: 'favorites', label: 'Favorites', icon: Heart },
-          { id: 'web', label: 'From Web', icon: Globe },
-          { id: 'recentlyAdded', label: 'Recently Added', icon: Clock },
-          { id: 'bookmarked', label: 'Bookmarked', icon: Star },
-        ] as Tab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[
-              styles.tab,
-              activeTab === tab.id && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <tab.icon width={16} height={16} color={activeTab === tab.id ? 'white' : '#475569'} />
-            <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <View style={styles.content}>
-        {/* Pantry Suggestions Section */}
-        {pantryRecipeSuggestions.length > 0 ? (
-          <RecipeGallery
-            title="Pantry Suggestions"
-            icon={ShoppingCart}
-            recipeList={pantryRecipeSuggestions}
-            onLongPress={handleLongPress}
-          />
-        ) : (
-          <Text style={{ textAlign: 'center', marginVertical: 16 }}>
-            Add items to your pantry to get personalized recipe suggestions!
-          </Text>
-        )}
-
-        {/* Existing RecipeGallery Components */}
-        {activeTab === 'all' && (
-          <>
-            <RecipeGallery title="Favorites" icon={Heart} recipeList={recipes.favorites} onLongPress={handleLongPress} />
-            <RecipeGallery title="Pulled from Web" icon={Globe} recipeList={recipes.web} onLongPress={handleLongPress} />
-            <RecipeGallery title="Recently Added" icon={Clock} recipeList={recipes.recentlyAdded} onLongPress={handleLongPress} />
-            <RecipeGallery title="Bookmarked Recipes" icon={Star} recipeList={recipes.bookmarked} onLongPress={handleLongPress} />
-          </>
-        )}
-        {activeTab === 'favorites' && (
-          <RecipeGallery title="Your Favorite Recipes" icon={Heart} recipeList={recipes.favorites} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'web' && (
-          <RecipeGallery title="Recipes Pulled from the Web" icon={Globe} recipeList={recipes.web} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'recentlyAdded' && (
-          <RecipeGallery title="Recently Added Recipes" icon={Clock} recipeList={recipes.recentlyAdded} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'bookmarked' && (
-          <RecipeGallery title="Your Bookmarked Recipes" icon={Star} recipeList={recipes.bookmarked} onLongPress={handleLongPress} />
-        )}
+        <RecipeGallery
+          title="My Recipes"
+          icon={Star}
+          recipeList={recipes}
+          onLongPress={handleLongPress}
+        />
       </View>
     </SafeAreaView>
   );
@@ -248,11 +185,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e293b',
   },
-  tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8, backgroundColor: 'white' },
-  tab: { flexDirection: 'row', alignItems: 'center', padding: 8, borderRadius: 8 },
-  activeTab: { backgroundColor: '#0d9488' },
-  tabText: { marginLeft: 4, color: '#475569' },
-  activeTabText: { color: 'white' },
   content: { flex: 1, padding: 16 },
   gallery: { marginBottom: 24 },
   galleryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },

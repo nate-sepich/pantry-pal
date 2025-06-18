@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum  # AWS Lambda adapter for FastAPI
 from pantry.pantry_service import pantry_router, get_roi_metrics
+from cookbook.cookbook_service import cookbook_router
 from ai.openai_service import enrich_image_job  # helper for image hydration
 from macros.macro_service import macro_router, enrich_item, enrich_recipe
 from auth.auth_service import auth_router
@@ -31,6 +32,7 @@ app.add_middleware(
 
 # Add your routers to the main app
 app.include_router(pantry_router, tags=["Pantry"])
+app.include_router(cookbook_router, tags=["Cookbook"])
 app.include_router(macro_router, tags=["Macros"])
 app.include_router(auth_router, tags=["Auth"])
 app.include_router(openai_router, tags=["OpenAI"])
