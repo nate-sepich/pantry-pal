@@ -71,6 +71,13 @@ def check_api_key():
     if not api_key:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
 
+def build_item_image_prompt(item_name: str) -> str:
+    """Return a detailed prompt for generating a photo-realistic image of the item."""
+    return (
+        f"Photo-realistic studio photograph of {item_name} on a clean neutral "
+        "background, soft natural lighting, crisp focus, no props except plates."
+    )
+
 @openai_router.get("/meal_recommendation")
 def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
     """Get OpenAI-powered recipe recommendations based on the user's pantry items."""
@@ -144,7 +151,7 @@ def generate_image(request: dict, user_id: str = Depends(get_user_id_from_token)
     item = next((i for i in items if i.id == item_id), None)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    prompt = f"High quality photo of {item.product_name} against a plain background."
+    prompt = build_item_image_prompt(item.product_name)
     try:
         # generate via OpenAI and upload to S3
         response = openai_client.images.generate(prompt=prompt, n=1, size="256x256")
@@ -195,7 +202,7 @@ def enrich_image_job(payload: dict):
     user_id = payload.get("user_id")
     item_id = payload.get("item_id")
     item_name = payload.get("item_name")
-    prompt = f"High quality photo of {item_name} against a plain background."
+    prompt = build_item_image_prompt(item_name)
     resp = openai_client.images.generate(prompt=prompt, n=1, size="256x256")
     img_url = resp.data[0].url
     img_data = requests.get(img_url).content
