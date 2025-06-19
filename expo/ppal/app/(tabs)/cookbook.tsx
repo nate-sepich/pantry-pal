@@ -10,8 +10,9 @@ import {
   StyleSheet,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
-import { Star, ChefHat, Menu, X, ShoppingCart, LucideProps } from 'lucide-react-native';
+import { Star, ChefHat, X, LucideProps } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { cookbookApi } from '../../src/api/client';
 import { Recipe as ApiRecipe } from '../../src/types/Recipe';
@@ -30,11 +31,11 @@ interface Recipe {
 // RecipeCard Component
 export const RecipeCard: React.FC<{
   recipe: Recipe;
-  onLongPress?: (recipe: Recipe) => void;
-}> = ({ recipe, onLongPress }) => (
+  onPress?: (recipe: Recipe) => void;
+}> = ({ recipe, onPress }) => (
   <TouchableOpacity
     style={styles.card}
-    onLongPress={onLongPress ? () => onLongPress(recipe) : undefined} // Add onLongPress handling
+    onPress={onPress ? () => onPress(recipe) : undefined}
   >
     <Image source={{ uri: recipe.image }} style={styles.cardImage} />
     <View style={styles.cardContent}>
@@ -50,8 +51,8 @@ export const RecipeGallery: React.FC<{
   title: string;
   icon: React.ComponentType<LucideProps>;
   recipeList: Recipe[];
-  onLongPress?: (recipe: Recipe) => void;
-}> = ({ title, icon: Icon, recipeList, onLongPress }) => (
+  onPress?: (recipe: Recipe) => void;
+}> = ({ title, icon: Icon, recipeList, onPress }) => (
   <View style={styles.gallery}>
     <View style={styles.galleryHeader}>
       <View style={styles.galleryTitle}>
@@ -62,7 +63,7 @@ export const RecipeGallery: React.FC<{
     <FlatList
       data={recipeList}
       renderItem={({ item }: { item: Recipe }) => (
-        <RecipeCard key={item.id} recipe={item} onLongPress={onLongPress} />
+        <RecipeCard key={item.id} recipe={item} onPress={onPress} />
       )}
       keyExtractor={(item: Recipe) => item.id.toString()}
       numColumns={2}
@@ -79,7 +80,6 @@ export default function CookbookPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [importVisible, setImportVisible] = useState<boolean>(false);
   const [importUrl, setImportUrl] = useState<string>('');
 
   const fetchRecipes = useCallback(async () => {
@@ -103,8 +103,8 @@ export default function CookbookPage() {
     }, [fetchRecipes])
   );
 
-  // Handle long press on a recipe card
-  const handleLongPress = (recipe: Recipe) => {
+  // Open detail modal when a recipe card is pressed
+  const handleCardPress = (recipe: Recipe) => {
     console.log('Preview:', recipe.title);
     setSelectedRecipe(recipe);
     setModalVisible(true);
@@ -133,39 +133,31 @@ export default function CookbookPage() {
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
             {selectedRecipe && (
-              <>
+              <ScrollView>
                 <Image source={{ uri: selectedRecipe.image }} style={styles.modalImage} />
                 <Text style={styles.modalTitle}>{selectedRecipe.title}</Text>
-                <Text style={styles.modalCategory}>{selectedRecipe.category}</Text>
-                <View style={styles.modalDetails}>
-                  <View style={styles.modalDetailItem}>
-                    <Clock width={16} height={16} />
-                    <Text style={styles.modalDetailText}>{selectedRecipe.cookTime}</Text>
+                {selectedRecipe.ingredients?.length ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.sectionHeader}>Ingredients</Text>
+                    {selectedRecipe.ingredients.map((ing, idx) => (
+                      <Text key={idx} style={styles.bodyText}>• {ing}</Text>
+                    ))}
                   </View>
-                  <View style={styles.modalDetailItem}>
-                    <Star width={16} height={16} color="gold" />
-                    <Text style={styles.modalDetailText}>{selectedRecipe.rating}</Text>
+                ) : null}
+                {selectedRecipe.instructions ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.sectionHeader}>Instructions</Text>
+                    <Text style={styles.bodyText}>{selectedRecipe.instructions}</Text>
                   </View>
-                </View>
+                ) : null}
                 <TouchableOpacity
-                  style={styles.closeButton}
+                  style={[styles.closeButton, { alignSelf: 'flex-end' }]}
                   onPress={() => setModalVisible(false)}
                 >
                   <X width={24} height={24} color="white" />
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
-          </View>
-        </Pressable>
-      </Modal>
-      <Modal visible={importVisible} transparent animationType="slide" onRequestClose={() => setImportVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setImportVisible(false)}>
-          <View style={styles.modalContent}>
-            <Text style={{ marginBottom: 8 }}>Paste recipe URL</Text>
-            <TextInput style={styles.searchInput} value={importUrl} onChangeText={setImportUrl} autoCapitalize="none" />
-            <TouchableOpacity style={[styles.closeButton,{position:'relative', marginTop:12}]} onPress={handleImport}>
-              <Text style={{color:'white'}}>Import</Text>
-            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -173,9 +165,6 @@ export default function CookbookPage() {
         <View style={styles.headerContent}>
           <ChefHat width={32} height={32} color="white" />
           <Text style={styles.headerTitle}>Cookbook Gallery</Text>
-          <TouchableOpacity onPress={() => setImportVisible(true)}>
-            <Menu width={24} height={24} color="white" />
-          </TouchableOpacity>
         </View>
         <TextInput
           style={styles.searchInput}
@@ -184,13 +173,26 @@ export default function CookbookPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        <View style={styles.importRow}>
+          <TextInput
+            style={[styles.searchInput, { flex: 1, marginTop: 8 }]}
+            placeholder="Paste recipe URL"
+            placeholderTextColor="#94a3b8"
+            value={importUrl}
+            autoCapitalize="none"
+            onChangeText={setImportUrl}
+          />
+          <TouchableOpacity style={styles.importButton} onPress={handleImport}>
+            <Text style={{ color: 'white' }}>Import</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.content}>
         <RecipeGallery
           title="My Recipes"
           icon={Star}
           recipeList={recipes}
-          onLongPress={handleLongPress}
+          onPress={handleCardPress}
         />
       </View>
     </SafeAreaView>
@@ -219,14 +221,18 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     margin: 8,
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#fff',
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
   },
   cardImage: { width: '100%', height: 120 },
-  cardContent: { padding: 8 },
-  cardTitle: { fontSize: 16, fontWeight: '600' },
+  cardContent: { padding: 12 },
+  cardTitle: { fontSize: 20, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     width: '90%',
@@ -236,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
   modalCategory: { fontSize: 14, color: '#94a3b8', marginBottom: 16 },
   modalDetails: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
   modalDetailItem: { flexDirection: 'row', alignItems: 'center' },
@@ -249,5 +255,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
   },
+  importRow: { flexDirection: 'row', alignItems: 'center' },
+  importButton: {
+    backgroundColor: '#0d9488',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  sectionHeader: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  bodyText: { fontSize: 14, marginBottom: 4 },
 });
 
