@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Keyboard } from 'react-native';
 import {
   SafeAreaView,
   View,
@@ -12,7 +13,7 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { Star, ChefHat, X, LucideProps } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { cookbookApi } from '../../src/api/client';
 import { Recipe as ApiRecipe } from '../../src/types/Recipe';
@@ -25,8 +26,8 @@ interface Recipe {
   rating?: number;
   category?: string;
   ingredients?: string[];
+  instructions?: string;
 }
-
 
 // RecipeCard Component
 export const RecipeCard: React.FC<{
@@ -49,14 +50,13 @@ export const RecipeCard: React.FC<{
 // Props for RecipeGallery
 export const RecipeGallery: React.FC<{
   title: string;
-  icon: React.ComponentType<LucideProps>;
   recipeList: Recipe[];
   onPress?: (recipe: Recipe) => void;
-}> = ({ title, icon: Icon, recipeList, onPress }) => (
+}> = ({ title, recipeList, onPress }) => (
   <View style={styles.gallery}>
     <View style={styles.galleryHeader}>
       <View style={styles.galleryTitle}>
-        <Icon width={24} height={24} color="#0d9488" />
+        <Ionicons name="star-outline" size={24} color="#0d9488" />
         <Text style={styles.galleryTitleText}>{title}</Text>
       </View>
     </View>
@@ -116,7 +116,8 @@ export default function CookbookPage() {
       const newRec = await cookbookApi.importRecipe(importUrl);
       setRecipes([...recipes, { id: newRec.id, title: newRec.name, image: newRec.image_url || 'https://via.placeholder.com/300x400', ingredients: newRec.ingredients || [] }]);
       setImportUrl('');
-      setImportVisible(false);
+      Keyboard.dismiss();
+      // import modal not used, only clear URL input
     } catch (e) {
       console.error('Import failed', e);
     }
@@ -154,7 +155,7 @@ export default function CookbookPage() {
                   style={[styles.closeButton, { alignSelf: 'flex-end' }]}
                   onPress={() => setModalVisible(false)}
                 >
-                  <X width={24} height={24} color="white" />
+                  <Ionicons name="close" size={24} color="white" />
                 </TouchableOpacity>
               </ScrollView>
             )}
@@ -163,7 +164,7 @@ export default function CookbookPage() {
       </Modal>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <ChefHat width={32} height={32} color="white" />
+          <Ionicons name="restaurant-outline" size={32} color="white" />
           <Text style={styles.headerTitle}>Cookbook Gallery</Text>
         </View>
         <TextInput
@@ -190,7 +191,6 @@ export default function CookbookPage() {
       <View style={styles.content}>
         <RecipeGallery
           title="My Recipes"
-          icon={Star}
           recipeList={recipes}
           onPress={handleCardPress}
         />

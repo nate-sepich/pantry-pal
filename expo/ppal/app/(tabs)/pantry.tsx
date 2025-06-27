@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView } from 'react-native';
 import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
-import { ShoppingCart, MessageCircle } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
@@ -213,9 +213,14 @@ export default function PantryScreen() {
       </Modal>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <ShoppingCart width={32} height={32} color="white" />
+          <Ionicons name="cart-outline" size={32} color="white" />
           <Text style={styles.headerTitle}>My Pantry</Text>
-          <MessageCircle width={24} height={24} color="white" onPress={() => router.push('/chats')} />
+          <Ionicons
+            name="chatbubble-outline"
+            size={24}
+            color="white"
+            onPress={() => router.push('/chats')}
+          />
         </View>
       </View>
       <View style={styles.content}>

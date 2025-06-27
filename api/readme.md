@@ -63,3 +63,11 @@ This is a FastAPI application for managing pantry inventory items.
 
 - **FastAPI Documentation:** [https://fastapi.tiangolo.com/](https://fastapi.tiangolo.com/)
 - **Uvicorn Documentation:** [https://www.uvicorn.org/](https://www.uvicorn.org/)
+
+## API Deployment Steps
+
+    ```sh
+    cd api
+    sam build -u
+    sam deploy --config-env dev-nsep
+    ```

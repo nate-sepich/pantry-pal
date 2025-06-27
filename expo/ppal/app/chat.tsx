@@ -6,7 +6,7 @@ import Markdown from 'react-native-markdown-display';
 import apiClient from '../src/api/client';
 import { ChatMessage, Chat } from '../src/types/Chat';
 import { getChat, upsertChat } from '../src/utils/chatStore';
-import { ArrowLeft, Menu } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -91,11 +91,11 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => router.push('/pantry')}>
-            <ArrowLeft width={24} height={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
           <TouchableOpacity onPress={() => router.push('/pantry')}>
-            <Menu width={24} height={24} color="white" />
+            <Ionicons name="menu" size={24} color="white" />
           </TouchableOpacity>
         </View>
       </View>

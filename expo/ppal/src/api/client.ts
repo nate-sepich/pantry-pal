@@ -4,8 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Recipe } from '../types/Recipe';
 
-// const API_BASE = process.env.API_BASE || 'https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/';
-const API_BASE = process.env.API_BASE || 'https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod';//'http://localhost:8000';
+// replace static API_BASE with platform-aware endpoints
+const PROD_ENDPOINT = process.env.API_BASE || 'https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod/';
+const LOCAL_ENDPOINT = 'http://localhost:8000';
+const API_BASE = Platform.OS === 'web' ? LOCAL_ENDPOINT : PROD_ENDPOINT;
 const apiClient = axios.create({
   baseURL: API_BASE,
 });
@@ -74,7 +76,7 @@ export async function refreshAuthToken(): Promise<string | null> {
     }
 
     return id_token;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error refreshing auth token:', error.response?.data || error.message);
     await logout(); // Force logout if token refresh fails
     return null;

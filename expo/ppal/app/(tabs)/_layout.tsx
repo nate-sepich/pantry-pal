@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { ShoppingCart, ChefHat, Globe } from 'lucide-react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   return (
@@ -9,21 +9,14 @@ export default function TabsLayout() {
         name="pantry"
         options={{
           title: 'Pantry',
-          tabBarIcon: ({ color, size }) => <ShoppingCart width={size} height={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <FontAwesome name="shopping-cart" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="cookbook"
         options={{
           title: 'Cookbook',
-          tabBarIcon: ({ color, size }) => <ChefHat width={size} height={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: 'Discover',
-          tabBarIcon: ({ color, size }) => <Globe width={size} height={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <FontAwesome name="book" size={size} color={color} />,
         }}
       />
     </Tabs>
