@@ -2,12 +2,33 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { Recipe } from '../types/Recipe';
 
-// const API_BASE = process.env.API_BASE || 'https://op14f0voe4.execute-api.us-east-1.amazonaws.com/Prod/';
-const API_BASE = process.env.API_BASE || 'https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod';//'http://localhost:8000';
+// replace static API_BASE with platform-aware endpoints
+const PROD_ENDPOINT = process.env.API_BASE || 'https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod/';
+const LOCAL_ENDPOINT = 'http://localhost:8000';
+const API_BASE = Platform.OS === 'web' ? LOCAL_ENDPOINT : PROD_ENDPOINT;
 const apiClient = axios.create({
   baseURL: API_BASE,
 });
+
+export const cookbookApi = {
+  async getRecipes(): Promise<Recipe[]> {
+    const res = await apiClient.get<Recipe[]>('/cookbook');
+    return res.data;
+  },
+  async addRecipe(recipe: Recipe): Promise<Recipe> {
+    const res = await apiClient.post<Recipe>('/cookbook', recipe);
+    return res.data;
+  },
+  async importRecipe(url: string): Promise<Recipe> {
+    const res = await apiClient.post<Recipe>('/cookbook/import', { url });
+    return res.data;
+  },
+  async deleteRecipe(id: string) {
+    return apiClient.delete(`/cookbook/${id}`);
+  },
+};
 
 // Helper to get stored value on native or web
 async function getItem(key: string): Promise<string | null> {
@@ -55,7 +76,7 @@ export async function refreshAuthToken(): Promise<string | null> {
     }
 
     return id_token;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error refreshing auth token:', error.response?.data || error.message);
     await logout(); // Force logout if token refresh fails
     return null;

@@ -41,11 +41,33 @@ def get_item(item_id: str, user_id: str = Depends(get_user_id_from_token)) -> In
     Retrieve a specific pantry item by its ID for the authenticated user.
     """
     logging.info(f"Fetching item ID: {item_id} for user ID: {user_id}")
-    items = read_pantry_items(user_id)
-    for item in items:
-        if item["id"] == item_id:
-            return item
-    raise HTTPException(status_code=404, detail="Item not found")
+    pk = f"USER#{user_id}"
+    sk = f"PANTRY#{item_id}"
+    try:
+        resp = pantry_table.get_item(Key={"PK": pk, "SK": sk})
+    except Exception as e:
+        logging.error(f"Error fetching pantry item: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving item")
+    raw = resp.get("Item")
+    if not raw or not raw.get("active", True):
+        raise HTTPException(status_code=404, detail="Item not found")
+    # Build InventoryItem with macros
+    macros_data = raw.get("macros") or {}
+    macros = InventoryItemMacros(**macros_data) if macros_data else None
+    item = InventoryItem(
+        id=raw["id"],
+        user_id=user_id,
+        product_name=raw.get("product_name", ""),
+        quantity=int(raw.get("quantity", 1)),
+        upc=raw.get("upc"),
+        macros=macros,
+        cost=raw.get("cost", 0),
+        expiration_date=raw.get("expiration_date"),
+        environmental_impact=raw.get("environmental_impact", 0),
+        image_url=raw.get("image_url"),
+        active=raw.get("active", True),
+    )
+    return item
 
 @pantry_router.post("/items")
 def create_pantry_item(item: InventoryItem, user_id: str = Depends(get_user_id_from_token)):

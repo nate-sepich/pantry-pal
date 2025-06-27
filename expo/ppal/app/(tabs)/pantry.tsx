@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions } from 'react-native';
-import { SafeAreaView, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
-import { ShoppingCart, MessageCircle } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
@@ -30,6 +29,8 @@ export default function PantryScreen() {
   const [categoryFilter, setCategoryFilter] = useState<FoodCategory | 'all'>('all');
   const [suggestions, setSuggestions] = useState<FoodSuggestion[]>([]);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
   const { width } = Dimensions.get('window');
   // Images are auto-generated upon item creation via the API
 
@@ -151,6 +152,11 @@ export default function PantryScreen() {
     setExpandedItemId(prev => (prev === id ? null : id));
   };
 
+  const openDetail = (item: InventoryItem) => {
+    setDetailItem(item);
+    setDetailVisible(true);
+  };
+
   const toggleFlavor = (label: string) => {
     setFlavorAdjustments(prev =>
       prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
@@ -207,11 +213,44 @@ export default function PantryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
+      <Modal
+        visible={detailVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDetailVisible(false)}
+      >
+        <Pressable style={styles.detailOverlay} onPress={() => setDetailVisible(false)}>
+          <View style={styles.modalContent}>
+            {detailItem && (
+              <ScrollView>
+                {detailItem.imageUrl && (
+                  <Image source={{ uri: detailItem.imageUrl }} style={styles.modalImage} />
+                )}
+                <Text style={styles.modalTitle}>{detailItem.product_name}</Text>
+                {detailItem.macros && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.sectionHeader}>Macros</Text>
+                    {renderMacroBars(detailItem.macros)}
+                  </View>
+                )}
+                <TouchableOpacity style={[styles.closeButton, { alignSelf: 'flex-end' }]} onPress={() => setDetailVisible(false)}>
+                  <MaterialIcons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <ShoppingCart width={32} height={32} color="white" />
+          <Ionicons name="cart-outline" size={32} color="white" />
           <Text style={styles.headerTitle}>My Pantry</Text>
-          <MessageCircle width={24} height={24} color="white" onPress={() => router.push('/chats')} />
+          <Ionicons
+            name="chatbubble-outline"
+            size={24}
+            color="white"
+            onPress={() => router.push('/chats')}
+          />
         </View>
       </View>
       <View style={styles.content}>
@@ -233,9 +272,11 @@ export default function PantryScreen() {
                styles.card,
                { width: (width - 48) / 2 },
                selectedItems.includes(item.id) && styles.selectedCard,
-             ]}
-             onPress={() => toggleSelect(item.id)}
-           >
+            ]}
+            onPress={() => openDetail(item)}
+            onLongPress={() => toggleSelect(item.id)}
+          >
+           <View style={{ position: 'relative' }}>
              {item.imageUrl ? (
                <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
              ) : (
@@ -243,6 +284,11 @@ export default function PantryScreen() {
                  <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
                </View>
              )}
+             {/* delete overlay icon */}
+             <TouchableOpacity style={styles.deleteOverlay} onPress={() => handleDeleteItem(item.id)}>
+               <Ionicons name="trash-outline" size={20} color="#ff4d4d" />
+             </TouchableOpacity>
+           </View>
              <Card.Content style={styles.cardBody}>
                <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
                <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
@@ -256,12 +302,6 @@ export default function PantryScreen() {
                <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
                  {expandedItemId === item.id ? 'Hide' : 'Info'}
                </Button>
-               <IconButton
-                 icon="delete"
-                 iconColor="#ff4d4d"
-                 size={20}
-                 onPress={() => handleDeleteItem(item.id)}
-              />
              </Card.Actions>
            </Card>
          )}
@@ -339,7 +379,10 @@ export default function PantryScreen() {
 
        {/* Add Item Modal */}
        <Modal visible={addModalVisible} animationType="slide" transparent>
-         <View style={styles.modalOverlay}>
+         <KeyboardAvoidingView
+           style={styles.modalOverlay}
+           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+         >
            <View style={styles.addSheet}>
              <Text style={styles.addTitle}>Add Item</Text>
             <Picker
@@ -400,7 +443,7 @@ export default function PantryScreen() {
                Cancel
              </Button>
            </View>
-         </View>
+         </KeyboardAvoidingView>
        </Modal>
 
        <Modal visible={showServingsPicker} transparent animationType="fade">
@@ -435,11 +478,11 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#888', textAlign: 'center', marginVertical: 16 },
   list: { paddingHorizontal: 16, paddingBottom: 120 },
   listCenter: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, margin: 8, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width:0, height:2 }, shadowRadius:4, elevation:3 },
+  card: { backgroundColor: '#fff', borderRadius: 16, margin: 8, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width:0, height:2 }, shadowRadius:4, elevation:3 },
   cardImage: { width: '100%', height: 150, backgroundColor: '#eee' },
   cardPlaceholder: { width: '100%', height: 150, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
   cardBody: { padding: 12 },
-  cardTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
+  cardTitle: { fontSize: 20, fontWeight: '600', marginBottom: 4 },
   cardQuantity: { fontSize: 14, color: '#666', marginBottom: 8 },
   cardActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
   columnWrapper: { justifyContent: 'space-between' },
@@ -458,6 +501,7 @@ const styles = StyleSheet.create({
 
   /* Add item bottom sheet style */
   modalOverlay: { flex:1, justifyContent:'flex-end', backgroundColor:'rgba(0,0,0,0.4)' },
+  detailOverlay: { flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'rgba(0,0,0,0.5)' },
   addSheet: { backgroundColor:'#fff', padding:16, borderTopLeftRadius:12, borderTopRightRadius:12 },
   addTitle: { fontSize:20, fontWeight:'bold', marginBottom:12 },
   addInput: { borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, marginBottom:12 },
@@ -487,4 +531,30 @@ const styles = StyleSheet.create({
   macroRow: { marginBottom: 6 },
   macroText: { fontSize: 12, marginBottom: 2 },
   macroBar: { height: 8, borderRadius: 4 },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  modalImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  sectionHeader: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  closeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#0d9488',
+    borderRadius: 16,
+    padding: 8,
+  },
+  deleteOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 1,
+  },
 });
