@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { Keyboard } from 'react-native';
 import {
   SafeAreaView,
   View,
@@ -10,13 +11,12 @@ import {
   StyleSheet,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
-import { Heart, Globe, Clock, Star, ChefHat, Menu, X, ShoppingCart, LucideProps } from 'lucide-react-native'; // Import LucideProps
-import pizzaImg from '../assets/images/margherita-pizza.jpg';
-import tacosImg from '../assets/images/tacos.png';
-import cakeImg from '../assets/images/cake.png';
-import curryImg from '../assets/images/curry.png';
-import breadImg from '../assets/images/bread.png';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { cookbookApi } from '../../src/api/client';
+import { Recipe as ApiRecipe } from '../../src/types/Recipe';
 
 interface Recipe {
   id: string;
@@ -26,22 +26,17 @@ interface Recipe {
   rating?: number;
   category?: string;
   ingredients?: string[];
-}
-
-interface Tab {
-  id: 'all' | 'favorites' | 'web' | 'recent' | 'recentlyAdded' | 'bookmarked';
-  label: string;
-  icon: React.ComponentType<LucideProps>; // Updated to use LucideProps
+  instructions?: string;
 }
 
 // RecipeCard Component
 export const RecipeCard: React.FC<{
   recipe: Recipe;
-  onLongPress?: (recipe: Recipe) => void;
-}> = ({ recipe, onLongPress }) => (
+  onPress?: (recipe: Recipe) => void;
+}> = ({ recipe, onPress }) => (
   <TouchableOpacity
     style={styles.card}
-    onLongPress={onLongPress ? () => onLongPress(recipe) : undefined} // Add onLongPress handling
+    onPress={onPress ? () => onPress(recipe) : undefined}
   >
     <Image source={{ uri: recipe.image }} style={styles.cardImage} />
     <View style={styles.cardContent}>
@@ -55,21 +50,20 @@ export const RecipeCard: React.FC<{
 // Props for RecipeGallery
 export const RecipeGallery: React.FC<{
   title: string;
-  icon: React.ComponentType<LucideProps>;
   recipeList: Recipe[];
-  onLongPress?: (recipe: Recipe) => void;
-}> = ({ title, icon: Icon, recipeList, onLongPress }) => (
+  onPress?: (recipe: Recipe) => void;
+}> = ({ title, recipeList, onPress }) => (
   <View style={styles.gallery}>
     <View style={styles.galleryHeader}>
       <View style={styles.galleryTitle}>
-        <Icon width={24} height={24} color="#0d9488" />
+        <Ionicons name="star-outline" size={24} color="#0d9488" />
         <Text style={styles.galleryTitleText}>{title}</Text>
       </View>
     </View>
     <FlatList
       data={recipeList}
       renderItem={({ item }: { item: Recipe }) => (
-        <RecipeCard key={item.id} recipe={item} onLongPress={onLongPress} />
+        <RecipeCard key={item.id} recipe={item} onPress={onPress} />
       )}
       keyExtractor={(item: Recipe) => item.id.toString()}
       numColumns={2}
@@ -80,43 +74,53 @@ export const RecipeGallery: React.FC<{
 );
 
 export default function CookbookPage() {
-  // State to track the currently active tab
-  const [activeTab, setActiveTab] = useState<Tab['id']>('all');
-
-  // State to store the recipes categorized by type
-  const [recipes] = useState<Record<'favorites' | 'web' | 'recentlyAdded' | 'bookmarked', Recipe[]>>({
-    favorites: [
-      { id: '1', title: 'Classic Margherita Pizza', image: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.ricardocuisine.com%2Fservices%2Frecipes%2Fpizza-1498148703.jpg&f=1&nofb=1&ipt=f58b25b39d225a4a5b665581df8ef35b2b16df1341f7f5efa3d00048ec532daf', cookTime: '25 min', rating: 5, category: 'Italian' },
-      { id: '2', title: 'Garlic Lemon Pasta', image: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ffrenchbydesignblog.com%2Fwp-content%2Fuploads%2F2022%2F02%2Fgarlic-lemon-pasta.jpg&f=1&nofb=1&ipt=9b56f9763b77b15be323705d5e75fb0508e8a0c981455d15491b75bc6b8681bb', cookTime: '20 min', rating: 4.5, category: 'Pasta' },
-    ],
-    web: [
-      { id: '3', title: 'Thai Green Curry', image: 'https://via.placeholder.com/300x400', cookTime: '35 min', rating: 4.8, category: 'Asian' },
-    ],
-    recentlyAdded: [
-      { id: '4', title: 'Mushroom Risotto', image: 'https://via.placeholder.com/300x400', cookTime: '40 min', rating: 4.6, category: 'Italian' },
-    ],
-    bookmarked: [
-      { id: '5', title: 'Banana Bread', image: 'https://via.placeholder.com/300x400', cookTime: '60 min', rating: 4.9, category: 'Baking' },
-    ],
-  });
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   // State to store the user's search query from the search input
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // State to store the currently selected recipe for the modal preview
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-
-  // State to control the visibility of the modal
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [importUrl, setImportUrl] = useState<string>('');
 
-  // State to store pantry recipe suggestions
-  const [pantryRecipeSuggestions] = useState<Recipe[]>([]);
+  const fetchRecipes = useCallback(async () => {
+    try {
+      const data = await cookbookApi.getRecipes();
+      const mapped = data.map((r: ApiRecipe) => ({
+        id: r.id,
+        title: r.name,
+        image: r.image_url || 'https://via.placeholder.com/300x400',
+        ingredients: r.ingredients || [],
+      }));
+      setRecipes(mapped);
+    } catch (e) {
+      console.error('Failed to load recipes', e);
+    }
+  }, []);
 
-  // Handle long press on a recipe card
-  const handleLongPress = (recipe: Recipe) => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecipes();
+    }, [fetchRecipes])
+  );
+
+  // Open detail modal when a recipe card is pressed
+  const handleCardPress = (recipe: Recipe) => {
     console.log('Preview:', recipe.title);
     setSelectedRecipe(recipe);
     setModalVisible(true);
+  };
+
+  const handleImport = async () => {
+    if (!importUrl) return;
+    try {
+      const newRec = await cookbookApi.importRecipe(importUrl);
+      setRecipes([...recipes, { id: newRec.id, title: newRec.name, image: newRec.image_url || 'https://via.placeholder.com/300x400', ingredients: newRec.ingredients || [] }]);
+      setImportUrl('');
+      Keyboard.dismiss();
+      // import modal not used, only clear URL input
+    } catch (e) {
+      console.error('Import failed', e);
+    }
   };
 
   return (
@@ -130,38 +134,38 @@ export default function CookbookPage() {
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
             {selectedRecipe && (
-              <>
+              <ScrollView>
                 <Image source={{ uri: selectedRecipe.image }} style={styles.modalImage} />
                 <Text style={styles.modalTitle}>{selectedRecipe.title}</Text>
-                <Text style={styles.modalCategory}>{selectedRecipe.category}</Text>
-                <View style={styles.modalDetails}>
-                  <View style={styles.modalDetailItem}>
-                    <Clock width={16} height={16} />
-                    <Text style={styles.modalDetailText}>{selectedRecipe.cookTime}</Text>
+                {selectedRecipe.ingredients?.length ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.sectionHeader}>Ingredients</Text>
+                    {selectedRecipe.ingredients.map((ing, idx) => (
+                      <Text key={idx} style={styles.bodyText}>• {ing}</Text>
+                    ))}
                   </View>
-                  <View style={styles.modalDetailItem}>
-                    <Star width={16} height={16} color="gold" />
-                    <Text style={styles.modalDetailText}>{selectedRecipe.rating}</Text>
+                ) : null}
+                {selectedRecipe.instructions ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={styles.sectionHeader}>Instructions</Text>
+                    <Text style={styles.bodyText}>{selectedRecipe.instructions}</Text>
                   </View>
-                </View>
+                ) : null}
                 <TouchableOpacity
-                  style={styles.closeButton}
+                  style={[styles.closeButton, { alignSelf: 'flex-end' }]}
                   onPress={() => setModalVisible(false)}
                 >
-                  <X width={24} height={24} color="white" />
+                  <Ionicons name="close" size={24} color="white" />
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
           </View>
         </Pressable>
       </Modal>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <ChefHat width={32} height={32} color="white" />
+          <Ionicons name="restaurant-outline" size={32} color="white" />
           <Text style={styles.headerTitle}>Cookbook Gallery</Text>
-          <TouchableOpacity>
-            <Menu width={24} height={24} color="white" />
-          </TouchableOpacity>
         </View>
         <TextInput
           style={styles.searchInput}
@@ -170,66 +174,26 @@ export default function CookbookPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-      </View>
-      <View style={styles.tabs}>
-        {([
-          { id: 'all', label: 'All Recipes', icon: Star },
-          { id: 'favorites', label: 'Favorites', icon: Heart },
-          { id: 'web', label: 'From Web', icon: Globe },
-          { id: 'recentlyAdded', label: 'Recently Added', icon: Clock },
-          { id: 'bookmarked', label: 'Bookmarked', icon: Star },
-        ] as Tab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[
-              styles.tab,
-              activeTab === tab.id && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <tab.icon width={16} height={16} color={activeTab === tab.id ? 'white' : '#475569'} />
-            <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
-              {tab.label}
-            </Text>
+        <View style={styles.importRow}>
+          <TextInput
+            style={[styles.searchInput, { flex: 1, marginTop: 8 }]}
+            placeholder="Paste recipe URL"
+            placeholderTextColor="#94a3b8"
+            value={importUrl}
+            autoCapitalize="none"
+            onChangeText={setImportUrl}
+          />
+          <TouchableOpacity style={styles.importButton} onPress={handleImport}>
+            <Text style={{ color: 'white' }}>Import</Text>
           </TouchableOpacity>
-        ))}
+        </View>
       </View>
       <View style={styles.content}>
-        {/* Pantry Suggestions Section */}
-        {pantryRecipeSuggestions.length > 0 ? (
-          <RecipeGallery
-            title="Pantry Suggestions"
-            icon={ShoppingCart}
-            recipeList={pantryRecipeSuggestions}
-            onLongPress={handleLongPress}
-          />
-        ) : (
-          <Text style={{ textAlign: 'center', marginVertical: 16 }}>
-            Add items to your pantry to get personalized recipe suggestions!
-          </Text>
-        )}
-
-        {/* Existing RecipeGallery Components */}
-        {activeTab === 'all' && (
-          <>
-            <RecipeGallery title="Favorites" icon={Heart} recipeList={recipes.favorites} onLongPress={handleLongPress} />
-            <RecipeGallery title="Pulled from Web" icon={Globe} recipeList={recipes.web} onLongPress={handleLongPress} />
-            <RecipeGallery title="Recently Added" icon={Clock} recipeList={recipes.recentlyAdded} onLongPress={handleLongPress} />
-            <RecipeGallery title="Bookmarked Recipes" icon={Star} recipeList={recipes.bookmarked} onLongPress={handleLongPress} />
-          </>
-        )}
-        {activeTab === 'favorites' && (
-          <RecipeGallery title="Your Favorite Recipes" icon={Heart} recipeList={recipes.favorites} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'web' && (
-          <RecipeGallery title="Recipes Pulled from the Web" icon={Globe} recipeList={recipes.web} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'recentlyAdded' && (
-          <RecipeGallery title="Recently Added Recipes" icon={Clock} recipeList={recipes.recentlyAdded} onLongPress={handleLongPress} />
-        )}
-        {activeTab === 'bookmarked' && (
-          <RecipeGallery title="Your Bookmarked Recipes" icon={Star} recipeList={recipes.bookmarked} onLongPress={handleLongPress} />
-        )}
+        <RecipeGallery
+          title="My Recipes"
+          recipeList={recipes}
+          onPress={handleCardPress}
+        />
       </View>
     </SafeAreaView>
   );
@@ -248,11 +212,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e293b',
   },
-  tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8, backgroundColor: 'white' },
-  tab: { flexDirection: 'row', alignItems: 'center', padding: 8, borderRadius: 8 },
-  activeTab: { backgroundColor: '#0d9488' },
-  tabText: { marginLeft: 4, color: '#475569' },
-  activeTabText: { color: 'white' },
   content: { flex: 1, padding: 16 },
   gallery: { marginBottom: 24 },
   galleryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -262,14 +221,18 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     margin: 8,
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#fff',
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
   },
   cardImage: { width: '100%', height: 120 },
-  cardContent: { padding: 8 },
-  cardTitle: { fontSize: 16, fontWeight: '600' },
+  cardContent: { padding: 12 },
+  cardTitle: { fontSize: 20, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: {
     width: '90%',
@@ -279,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
   modalCategory: { fontSize: 14, color: '#94a3b8', marginBottom: 16 },
   modalDetails: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
   modalDetailItem: { flexDirection: 'row', alignItems: 'center' },
@@ -292,5 +255,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
   },
+  importRow: { flexDirection: 'row', alignItems: 'center' },
+  importButton: {
+    backgroundColor: '#0d9488',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  sectionHeader: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  bodyText: { fontSize: 14, marginBottom: 4 },
 });
 

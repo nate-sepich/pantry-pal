@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 from api.app import app
-from api.pantry.pantry_service import get_user, get_user_id_from_token
+from pantry.pantry_service import get_user, get_user_id_from_token
+from pantry import pantry_service
 
 class DummyUser:
     id = "testuser"
@@ -14,6 +15,8 @@ def override_get_user_id_from_token():
 
 app.dependency_overrides[get_user] = override_get_user
 app.dependency_overrides[get_user_id_from_token] = override_get_user_id_from_token
+
+pantry_service.read_pantry_items = lambda uid: []
 
 client = TestClient(app)
 

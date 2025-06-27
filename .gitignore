@@ -22,3 +22,6 @@ expo/ppal/node_modules/
 
 # Ignore local config
 .direnv/
+
+# Ignore AWS SAM build artifacts
+**.aws-sam**
