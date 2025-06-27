@@ -94,7 +94,7 @@ class Recipe(BaseModel):
     image_url: Optional[str] = None
     cook_time: Optional[str] = None
     tags: Optional[List[str]] = None
-    
+    active: bool = True  # Soft delete flag
 
 
 

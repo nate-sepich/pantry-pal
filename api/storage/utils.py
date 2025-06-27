@@ -1,7 +1,7 @@
 import os
 import logging
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 from datetime import datetime
 from decimal import Decimal
@@ -43,7 +43,8 @@ def read_pantry_items(user_id: str) -> list[InventoryItem]:
     pk = f"USER#{user_id}"
     try:
         resp = pantry_table.query(
-            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("PANTRY#")
+            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("PANTRY#"),
+            FilterExpression=Attr("active").eq(True)
         )
         items: list[InventoryItem] = []
         for raw in resp.get("Items", []):
@@ -135,10 +136,11 @@ def read_recipe_items(user_id: str) -> list[Recipe]:
     pk = f"USER#{user_id}"
     try:
         resp = pantry_table.query(
-            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("RECIPE#")
+            KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with("RECIPE#"),
+            FilterExpression=Attr("active").eq(True)
         )
         return [Recipe(**raw) for raw in resp.get("Items", [])]
-
+     
     except ClientError as e:
         logging.error("Error querying recipe items: %s", e.response["Error"]["Message"])
         raise
@@ -164,6 +166,26 @@ def write_recipe_items(user_id: str, items: list[Recipe]) -> None:
 
     except ClientError as e:
         logging.error("Error writing recipe items: %s", e.response["Error"]["Message"])
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        raise
+
+
+def soft_delete_recipe_item(user_id: str, recipe_id: str) -> None:
+    """Mark a recipe as inactive instead of deleting it."""
+    pk = f"USER#{user_id}"
+    sk = f"RECIPE#{recipe_id}"
+    try:
+        pantry_table.update_item(
+            Key={"PK": pk, "SK": sk},
+            UpdateExpression="SET #active = :inactive",
+            ExpressionAttributeNames={"#active": "active"},
+            ExpressionAttributeValues={":inactive": False}
+        )
+        logging.info(f"Soft deleted recipe with ID: {recipe_id} for user ID: {user_id}")
+    except ClientError as e:
+        logging.error("Error soft deleting recipe: %s", e.response["Error"]["Message"])
         raise
     except Exception as e:
         logging.error(f"Unexpected error: {e}")

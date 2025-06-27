@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
 import { Ionicons } from '@expo/vector-icons';
@@ -246,6 +246,7 @@ export default function PantryScreen() {
             onPress={() => openDetail(item)}
             onLongPress={() => toggleSelect(item.id)}
           >
+           <View style={{ position: 'relative' }}>
              {item.imageUrl ? (
                <Card.Cover source={{ uri: item.imageUrl }} style={styles.cardImage} />
              ) : (
@@ -253,6 +254,11 @@ export default function PantryScreen() {
                  <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
                </View>
              )}
+             {/* delete overlay icon */}
+             <TouchableOpacity style={styles.deleteOverlay} onPress={() => handleDeleteItem(item.id)}>
+               <Ionicons name="trash-outline" size={20} color="#ff4d4d" />
+             </TouchableOpacity>
+           </View>
              <Card.Content style={styles.cardBody}>
                <Text numberOfLines={1} style={styles.cardTitle}>{item.product_name}</Text>
                <Text style={styles.cardQuantity}>Qty: {item.quantity}</Text>
@@ -266,12 +272,6 @@ export default function PantryScreen() {
                <Button textColor="#0a7ea4" onPress={() => toggleExpandItem(item.id)}>
                  {expandedItemId === item.id ? 'Hide' : 'Info'}
                </Button>
-               <IconButton
-                 icon="delete"
-                 iconColor="#ff4d4d"
-                 size={20}
-                 onPress={() => handleDeleteItem(item.id)}
-              />
              </Card.Actions>
            </Card>
          )}
@@ -349,7 +349,10 @@ export default function PantryScreen() {
 
        {/* Add Item Modal */}
        <Modal visible={addModalVisible} animationType="slide" transparent>
-         <View style={styles.modalOverlay}>
+         <KeyboardAvoidingView
+           style={styles.modalOverlay}
+           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+         >
            <View style={styles.addSheet}>
              <Text style={styles.addTitle}>Add Item</Text>
              <PaperTextInput
@@ -382,7 +385,7 @@ export default function PantryScreen() {
                Cancel
              </Button>
            </View>
-         </View>
+         </KeyboardAvoidingView>
        </Modal>
 
        <Modal visible={showServingsPicker} transparent animationType="fade">
@@ -483,5 +486,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0d9488',
     borderRadius: 16,
     padding: 8,
+  },
+  deleteOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 1,
   },
 });

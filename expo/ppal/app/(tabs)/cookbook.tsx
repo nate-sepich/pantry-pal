@@ -33,7 +33,8 @@ interface Recipe {
 export const RecipeCard: React.FC<{
   recipe: Recipe;
   onPress?: (recipe: Recipe) => void;
-}> = ({ recipe, onPress }) => (
+  onDelete?: (recipe: Recipe) => void;
+}> = ({ recipe, onPress, onDelete }) => (
   <TouchableOpacity
     style={styles.card}
     onPress={onPress ? () => onPress(recipe) : undefined}
@@ -44,6 +45,15 @@ export const RecipeCard: React.FC<{
         {recipe.title}
       </Text>
     </View>
+    {/* delete icon overlay */}
+    {onDelete && (
+      <TouchableOpacity
+        style={styles.deleteIcon}
+        onPress={() => onDelete(recipe)}
+      >
+        <Ionicons name="trash-outline" size={20} color="#ff4d4d" />
+      </TouchableOpacity>
+    )}
   </TouchableOpacity>
 );
 
@@ -52,7 +62,8 @@ export const RecipeGallery: React.FC<{
   title: string;
   recipeList: Recipe[];
   onPress?: (recipe: Recipe) => void;
-}> = ({ title, recipeList, onPress }) => (
+  onDelete?: (recipe: Recipe) => void;
+}> = ({ title, recipeList, onPress, onDelete }) => (
   <View style={styles.gallery}>
     <View style={styles.galleryHeader}>
       <View style={styles.galleryTitle}>
@@ -63,7 +74,7 @@ export const RecipeGallery: React.FC<{
     <FlatList
       data={recipeList}
       renderItem={({ item }: { item: Recipe }) => (
-        <RecipeCard key={item.id} recipe={item} onPress={onPress} />
+        <RecipeCard key={item.id} recipe={item} onPress={onPress} onDelete={onDelete} />
       )}
       keyExtractor={(item: Recipe) => item.id.toString()}
       numColumns={2}
@@ -120,6 +131,16 @@ export default function CookbookPage() {
       // import modal not used, only clear URL input
     } catch (e) {
       console.error('Import failed', e);
+    }
+  };
+
+  // delete imported recipe
+  const handleDelete = async (item: Recipe) => {
+    try {
+      await cookbookApi.deleteRecipe(item.id);
+      setRecipes(prev => prev.filter(r => r.id !== item.id));
+    } catch (e) {
+      console.error('Failed to delete recipe', e);
     }
   };
 
@@ -193,6 +214,7 @@ export default function CookbookPage() {
           title="My Recipes"
           recipeList={recipes}
           onPress={handleCardPress}
+          onDelete={handleDelete}
         />
       </View>
     </SafeAreaView>
@@ -265,5 +287,14 @@ const styles = StyleSheet.create({
   },
   sectionHeader: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   bodyText: { fontSize: 14, marginBottom: 4 },
+  deleteIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 16,
+    padding: 8,
+    elevation: 2,
+  },
 });
 

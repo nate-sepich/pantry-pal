@@ -9,6 +9,7 @@ from recipe_scrapers import scrape_me
 
 from models.models import Recipe
 from storage.utils import read_recipe_items, write_recipe_items, pantry_table
+from storage.utils import read_recipe_items, write_recipe_items, pantry_table, soft_delete_recipe_item
 from auth.auth_service import get_current_user, get_user_id_from_token
 
 get_user = get_current_user
@@ -51,13 +52,11 @@ def add_recipe(recipe: Recipe, user_id: str = Depends(get_user_id)) -> Recipe:
 @cookbook_router.delete("/{recipe_id}")
 def delete_recipe(recipe_id: str, user_id: str = Depends(get_user_id)) -> dict:
     """Delete a recipe for the authenticated user."""
-    pk = f"USER#{user_id}"
-    sk = f"RECIPE#{recipe_id}"
     try:
-        pantry_table.delete_item(Key={"PK": pk, "SK": sk})
-        return {"message": "Recipe deleted"}
+        soft_delete_recipe_item(user_id, recipe_id)
+        return {"message": "Recipe soft deleted"}
     except Exception as e:
-        logging.error(f"Error deleting recipe: {e}")
+        logging.error(f"Error soft deleting recipe: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete recipe")
 
 
