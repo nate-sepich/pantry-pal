@@ -35,6 +35,14 @@ class LoginModel(BaseModel):
 class RefreshModel(BaseModel):
     refresh_token: str
 
+class ForgotPasswordModel(BaseModel):
+    username: str
+
+class ResetPasswordModel(BaseModel):
+    username: str
+    confirmation_code: str
+    new_password: str
+
 # Endpoint to register a new user
 @auth_router.post('/register')
 async def register_user(model: RegisterModel):
@@ -82,40 +90,143 @@ async def confirm_user(model: ConfirmModel):
 @auth_router.post('/login')
 async def login_user(model: LoginModel):
     try:
+        logging.info(f"Login attempt for username: {model.username}")
+        logging.info(f"Using client_id: {client_id}")
+        logging.info(f"Using user_pool_id: {user_pool_id}")
+        
         resp = cognito_client.initiate_auth(
             ClientId=client_id,
             AuthFlow='USER_PASSWORD_AUTH',
             AuthParameters={'USERNAME': model.username, 'PASSWORD': model.password}
         )
+        
+        logging.info(f"Cognito response keys: {list(resp.keys())}")
+        
+        # Check if Cognito returned a challenge
+        if 'ChallengeName' in resp:
+            challenge_name = resp.get('ChallengeName')
+            logging.info(f"Cognito challenge received: {challenge_name}")
+            
+            if challenge_name == 'NEW_PASSWORD_REQUIRED':
+                logging.error(f"User {model.username} must set a new password")
+                raise HTTPException(
+                    status_code=400, 
+                    detail='RESET_PASSWORD_REQUIRED'  # Special code for frontend
+                )
+            elif challenge_name == 'SOFTWARE_TOKEN_MFA':
+                logging.error(f"MFA required for user {model.username}")
+                raise HTTPException(
+                    status_code=400,
+                    detail='Multi-factor authentication is required but not supported in this app. Please contact support.'
+                )
+            elif challenge_name == 'SMS_MFA':
+                logging.error(f"SMS MFA required for user {model.username}")
+                raise HTTPException(
+                    status_code=400,
+                    detail='SMS verification is required but not supported in this app. Please contact support.'
+                )
+            else:
+                logging.error(f"Unsupported challenge: {challenge_name}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f'Authentication requires additional steps not supported in this app. Please contact support.'
+                )
+        
+        # Normal authentication flow
         auth_result = resp.get('AuthenticationResult', {})
-        return {
-            'access_token': auth_result.get('AccessToken'),
-            'id_token': auth_result.get('IdToken'),
-            'refresh_token': auth_result.get('RefreshToken')
+        logging.info(f"AuthenticationResult keys: {list(auth_result.keys())}")
+        
+        # Log what tokens we received (but not their values for security)
+        access_token = auth_result.get('AccessToken')
+        id_token = auth_result.get('IdToken')
+        refresh_token = auth_result.get('RefreshToken')
+        
+        logging.info(f"AccessToken present: {access_token is not None}")
+        logging.info(f"IdToken present: {id_token is not None}")
+        logging.info(f"RefreshToken present: {refresh_token is not None}")
+        
+        if not id_token:
+            logging.error("No IdToken received from Cognito - this should not happen in normal auth flow")
+            raise HTTPException(status_code=500, detail='No ID token received from authentication service')
+            
+        response_data = {
+            'access_token': access_token,
+            'id_token': id_token,
+            'refresh_token': refresh_token
         }
-    except cognito_client.exceptions.NotAuthorizedException:
-        raise HTTPException(status_code=401, detail='Invalid credentials')
+        
+        logging.info(f"Returning response with keys: {list(response_data.keys())}")
+        return response_data
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (these are our custom ones)
+        raise
+    except cognito_client.exceptions.NotAuthorizedException as e:
+        logging.error(f"Invalid credentials for user {model.username}: {e}")
+        raise HTTPException(status_code=401, detail='Invalid username or password')
+    except cognito_client.exceptions.UserNotConfirmedException as e:
+        logging.error(f"User not confirmed: {model.username}")
+        raise HTTPException(status_code=400, detail='Your account is not confirmed. Please check your email for a confirmation code and use the registration flow to confirm your account.')
+    except cognito_client.exceptions.UserNotFoundException as e:
+        logging.error(f"User not found: {model.username}")
+        raise HTTPException(status_code=401, detail='Invalid username or password')
+    except cognito_client.exceptions.PasswordResetRequiredException as e:
+        logging.error(f"Password reset required for user {model.username}: {e}")
+        raise HTTPException(status_code=400, detail='RESET_PASSWORD_REQUIRED')  # Special code for frontend
+    except cognito_client.exceptions.TooManyRequestsException as e:
+        logging.error(f"Too many requests for user {model.username}")
+        raise HTTPException(status_code=429, detail='Too many login attempts. Please wait and try again later.')
     except Exception as e:
-        logging.error(f"Error during login: {e}")
-        raise HTTPException(status_code=500, detail='Login failed')
+        logging.error(f"Unexpected error during login for {model.username}: {type(e).__name__}: {e}")
+        logging.error(f"Error details: {getattr(e, 'response', {})}")
+        raise HTTPException(status_code=500, detail='Login failed due to server error')
 
-# Endpoint to refresh tokens
-@auth_router.post('/refresh')
-async def refresh_token(model: RefreshModel):
+# Endpoint to initiate password reset
+@auth_router.post('/forgot-password')
+async def forgot_password(model: ForgotPasswordModel):
     try:
-        resp = cognito_client.initiate_auth(
+        logging.info(f"Password reset request for username: {model.username}")
+        cognito_client.forgot_password(
             ClientId=client_id,
-            AuthFlow='REFRESH_TOKEN_AUTH',
-            AuthParameters={'REFRESH_TOKEN': model.refresh_token}
+            Username=model.username
         )
-        auth_result = resp.get('AuthenticationResult', {})
-        return {
-            'access_token': auth_result.get('AccessToken'),
-            'id_token': auth_result.get('IdToken')
-        }
+        logging.info(f"Password reset initiated for user: {model.username}")
+        return {'message': 'Password reset code sent to your email'}
+    except cognito_client.exceptions.UserNotFoundException:
+        # Don't reveal if user exists or not for security
+        return {'message': 'If the username exists, a password reset code has been sent to your email'}
+    except cognito_client.exceptions.InvalidParameterException as e:
+        msg = e.response.get('Error', {}).get('Message', str(e))
+        raise HTTPException(status_code=400, detail=msg)
     except Exception as e:
-        logging.error(f"Error during token refresh: {e}")
-        raise HTTPException(status_code=500, detail='Token refresh failed')
+        logging.error(f"Error during password reset for {model.username}: {e}")
+        raise HTTPException(status_code=500, detail='Password reset failed')
+
+# Endpoint to confirm password reset
+@auth_router.post('/reset-password')
+async def reset_password(model: ResetPasswordModel):
+    try:
+        logging.info(f"Password reset confirmation for username: {model.username}")
+        cognito_client.confirm_forgot_password(
+            ClientId=client_id,
+            Username=model.username,
+            ConfirmationCode=model.confirmation_code,
+            Password=model.new_password
+        )
+        logging.info(f"Password reset completed for user: {model.username}")
+        return {'message': 'Password reset successfully. You can now login with your new password.'}
+    except cognito_client.exceptions.CodeMismatchException:
+        raise HTTPException(status_code=400, detail='Invalid confirmation code')
+    except cognito_client.exceptions.ExpiredCodeException:
+        raise HTTPException(status_code=400, detail='Confirmation code expired. Please request a new one.')
+    except cognito_client.exceptions.InvalidPasswordException as e:
+        msg = e.response.get('Error', {}).get('Message', str(e))
+        raise HTTPException(status_code=400, detail=msg)
+    except cognito_client.exceptions.UserNotFoundException:
+        raise HTTPException(status_code=400, detail='Invalid username')
+    except Exception as e:
+        logging.error(f"Error during password reset confirmation for {model.username}: {e}")
+        raise HTTPException(status_code=500, detail='Password reset confirmation failed')
 
 # Fetch and cache JWKS for manual JWT verification
 COGNITO_REGION = os.getenv('COGNITO_REGION', os.getenv('AWS_REGION', 'us-east-1'))
@@ -161,3 +272,36 @@ from fastapi import Depends
 # Dependency to extract user_id directly
 async def get_user_id_from_token(user_claims: dict = Depends(get_current_user)):
     return user_claims.get('sub') or user_claims.get('username')
+
+# Add a health check endpoint for debugging
+@auth_router.get('/health')
+async def health_check():
+    """Health check endpoint to verify API connectivity"""
+    return {
+        'status': 'healthy',
+        'service': 'auth',
+        'cognito_configured': bool(client_id and user_pool_id),
+        'region': region
+    }
+
+# Add environment validation
+def validate_cognito_config():
+    """Validate that required Cognito environment variables are set"""
+    missing = []
+    if not user_pool_id:
+        missing.append('COGNITO_USER_POOL_ID')
+    if not client_id:
+        missing.append('COGNITO_USER_POOL_CLIENT_ID')
+    if not region:
+        missing.append('AWS_REGION')
+    
+    if missing:
+        logging.error(f"Missing required environment variables: {missing}")
+        return False
+    
+    logging.info(f"Cognito configuration validated - Pool ID: {user_pool_id[:10]}..., Client ID: {client_id[:10]}..., Region: {region}")
+    return True
+
+# Validate configuration on startup
+if not validate_cognito_config():
+    logging.critical("Cognito configuration invalid - authentication will not work")
