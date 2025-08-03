@@ -11,6 +11,11 @@ Globals:
           Ref: PantryPalUserPool
         COGNITO_USER_POOL_CLIENT_ID:
           Ref: PantryPalUserPoolClient
+Parameters:
+  CVScannerFunctionName:
+    Type: String
+    Description: Name of the CV Scanner Lambda function
+    Default: barcode-cv-scanner
 Resources:
   PantryMacroDLQ:
     Type: AWS::SQS::Queue
@@ -57,6 +62,8 @@ Resources:
             Ref: ImageGenerationQueue
           IMAGE_BUCKET_NAME:
             Ref: ImageBucket
+          BARCODE_CV_LAMBDA_NAME:
+            Ref: CVScannerFunctionName
       Policies:
       - DynamoDBCrudPolicy:
           TableName:
@@ -83,6 +90,12 @@ Resources:
             Fn::GetAtt:
             - ImageGenerationQueue
             - Arn
+      - Statement:
+          Effect: Allow
+          Action:
+          - lambda:InvokeFunction
+          Resource:
+            Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${CVScannerFunctionName}
       Events:
         ApiEvent:
           Type: Api

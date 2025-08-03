@@ -12,3 +12,5 @@ openai>=1.0.0
 mangum
 boto3
 recipe-scrapers
+pyzbar
+numpy

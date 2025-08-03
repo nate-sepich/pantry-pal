@@ -162,3 +162,13 @@ class ItemMacroRequest(BaseModel):
         if v <= 0:
             raise ValueError("quantity must be positive")
         return v
+
+class UPCLookupResponse(BaseModel):
+    """Response model for UPC lookup."""
+    product_name: str
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    fdc_id: Optional[str] = None
+    ingredients: Optional[str] = None
+    source: Optional[str] = None

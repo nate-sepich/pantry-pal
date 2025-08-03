@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip } from 'react-native-paper';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Dimensions, SafeAreaView, Image, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Card, Button, TextInput as PaperTextInput, FAB, ProgressBar, IconButton, Chip, Searchbar } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
-import { MaterialIcons } from '@expo/vector-icons'; // Icons for delete and add actions
+import { MaterialIcons } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
+// Remove camera imports for now and use manual entry only
+// import { Camera } from 'expo-camera';
+// import { BarCodeScanner } from 'expo-barcode-scanner';
 import apiClient from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useRouter, Redirect } from 'expo-router';
@@ -31,6 +34,11 @@ export default function PantryScreen() {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [recentItems, setRecentItems] = useState<string[]>([]);
+  const [popularItems, setPopularItems] = useState<string[]>([]);
+  const [isLoadingPopular, setIsLoadingPopular] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const { width } = Dimensions.get('window');
   // Images are auto-generated upon item creation via the API
 
@@ -47,6 +55,13 @@ export default function PantryScreen() {
   useEffect(() => {
     fetchSuggestions(itemName);
   }, [itemName, categoryFilter]);
+
+  // Fetch popular items from backend
+  useEffect(() => {
+    if (userToken) {
+      fetchPopularItems();
+    }
+  }, [userToken]);
 
   const fetchPantry = async () => {
     try {
@@ -80,21 +95,43 @@ export default function PantryScreen() {
     }
   };
 
+  const fetchPopularItems = async () => {
+    try {
+      setIsLoadingPopular(true);
+      const res = await apiClient.get('/pantry/popular-items');
+      setPopularItems(res.data.items || []);
+    } catch (e) {
+      console.warn('Failed to load popular items, using defaults');
+      setPopularItems(['Milk', 'Bread', 'Eggs', 'Chicken Breast', 'Rice', 'Bananas']);
+    } finally {
+      setIsLoadingPopular(false);
+    }
+  };
+
   const handleAddItem = async () => {
-    if (!itemName || !itemQuantity) {
-      console.error('Error: Item name or quantity is missing.');
+    if (!itemName) {
+      console.error('Error: Item name is missing.');
+      return;
+    }
+
+    // Ensure we have a valid quantity - default to 1 if not set
+    const quantity = itemQuantity && itemQuantity.trim() !== '' ? Number(itemQuantity) : 1;
+    
+    if (isNaN(quantity) || quantity <= 0) {
+      console.error('Error: Invalid quantity.');
+      Alert.alert('Error', 'Please enter a valid quantity.');
       return;
     }
 
     try {
       const macroRes = await apiClient.post('/macros/item', {
         item_name: itemName,
-        quantity: Number(itemQuantity),
+        quantity: quantity,
         unit: itemUnit,
       });
       const response = await apiClient.post('/pantry/items', {
         product_name: itemName,
-        quantity: Number(itemQuantity),
+        quantity: quantity,
         macros: macroRes.data,
       });
       console.log('Item added successfully:', response.data);
@@ -104,7 +141,63 @@ export default function PantryScreen() {
       fetchPantry(); // Refresh the pantry list
     } catch (e: any) {
       console.error('Error adding item:', e);
+      Alert.alert('Error', 'Failed to add item. Please try again.');
     }
+  };
+
+  const handleQuickAdd = async (name: string) => {
+    if (!name) {
+      console.error('Error: Item name is missing for quick add.');
+      return;
+    }
+
+    try {
+      setIsAddingItem(true);
+      console.log(`Quick adding item: ${name}`);
+      
+      // Get macro information for the item
+      const macroRes = await apiClient.post('/macros/item', {
+        item_name: name,
+        quantity: 1,
+        unit: 'g',
+      });
+      
+      // Add the item to pantry
+      const response = await apiClient.post('/pantry/items', {
+        product_name: name,
+        quantity: 1,
+        macros: macroRes.data,
+      });
+      
+      console.log('Quick add successful:', response.data);
+      
+      // Update recent items for better UX
+      setRecentItems(prev => {
+        const updated = [name, ...prev.filter(item => item !== name)];
+        return updated.slice(0, 5); // Keep only top 5 recent items
+      });
+      
+      // Refresh the pantry list
+      fetchPantry();
+      
+      // Show success feedback
+      Alert.alert('Success', `"${name}" added to your pantry!`);
+      
+    } catch (e: any) {
+      console.error(`Error quick adding item ${name}:`, e);
+      Alert.alert('Error', `Failed to add "${name}". Please try again.`);
+    } finally {
+      setIsAddingItem(false);
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion: FoodSuggestion) => {
+    setItemName(suggestion.name);
+    // Set default quantity to 1 if not already set
+    if (!itemQuantity || itemQuantity.trim() === '') {
+      setItemQuantity('1');
+    }
+    setSuggestions([]);
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -199,6 +292,73 @@ export default function PantryScreen() {
     router.replace('/login');
   };
 
+  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+    if (isLookingUp) return;
+    
+    setIsLookingUp(true);
+    
+    try {
+      Alert.alert('Looking up product...', 'Please wait while we find product information.');
+      
+      const response = await apiClient.get(`/pantry/lookup/${data}`);
+      if (response.data && response.data.product_name) {
+        setItemName(response.data.product_name);
+        setItemQuantity('1');
+        setAddModalVisible(true);
+        
+        if (response.data.brand) {
+          setRecentItems(prev => [response.data.product_name, ...prev.slice(0, 4)]);
+        }
+        
+        Alert.alert('Product Found!', `Added "${response.data.product_name}" to the form.`);
+      } else {
+        Alert.alert('Product Not Found', 'This barcode was not found in our database. Please enter the item manually.');
+        setAddModalVisible(true);
+      }
+    } catch (error: any) {
+      console.error('UPC lookup failed:', error);
+      if (error.response?.status === 404) {
+        Alert.alert('Product Not Found', 'This barcode was not found in our database. Please enter the item manually.');
+      } else {
+        Alert.alert('Lookup Failed', 'Unable to find product information. Please enter manually.');
+      }
+      setAddModalVisible(true);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const openBarcodeScanner = async () => {
+    // Since camera functionality is disabled, go straight to manual entry
+    handleManualEntry();
+  };
+
+  const handleManualEntry = () => {
+    Alert.prompt(
+      'Enter Barcode',
+      'Type the barcode number manually:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Lookup', 
+          onPress: (text) => {
+            if (text && text.trim()) {
+              handleBarCodeScanned({ type: 'manual', data: text.trim() });
+            }
+          }
+        }
+      ],
+      'plain-text',
+      '',
+      'number-pad'
+    );
+  };
+
+  const renderCameraModal = () => {
+    // Camera functionality disabled for now
+    return null;
+  };
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
@@ -270,7 +430,7 @@ export default function PantryScreen() {
            <Card
              style={[
                styles.card,
-               { width: (width - 48) / 2 },
+               { width: (width - 32) / 2 - 8 }, // Improved spacing calculation
                selectedItems.includes(item.id) && styles.selectedCard,
             ]}
             onPress={() => openDetail(item)}
@@ -374,91 +534,225 @@ export default function PantryScreen() {
        <FAB
          icon="plus"
          style={styles.fab}
-         onPress={() => setAddModalVisible(true)}
+         onPress={() => {
+           // Initialize with default values
+           if (!itemQuantity || itemQuantity.trim() === '') {
+             setItemQuantity('1');
+           }
+           setAddModalVisible(true);
+         }}
        />
 
        {/* Add Item Modal */}
-       <Modal visible={addModalVisible} animationType="slide" transparent>
-         <KeyboardAvoidingView
-           style={styles.modalOverlay}
-           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-         >
-           <View style={styles.addSheet}>
-             <Text style={styles.addTitle}>Add Item</Text>
-            <Picker
-              selectedValue={categoryFilter}
-              style={styles.picker}
-              onValueChange={(v) => setCategoryFilter(v as FoodCategory | 'all')}
-            >
-              <Picker.Item label="All Categories" value="all" />
-              {Object.values(FoodCategory).map(cat => (
-                <Picker.Item key={cat} label={cat} value={cat} />
-              ))}
-            </Picker>
-            <PaperTextInput
-              style={styles.addInput}
-              mode="outlined"
-              placeholder="Item name"
-              value={itemName}
-              onChangeText={setItemName}
-            />
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionBox}>
-                {suggestions.map(s => (
-                  <TouchableOpacity key={s.fdc_id || s.name} onPress={() => { setItemName(s.name); setSuggestions([]); }}>
-                    <Text style={styles.suggestionText}>{s.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <PaperTextInput
-              style={styles.addInput}
-              mode="outlined"
-              placeholder="Quantity"
-              keyboardType="numeric"
-              value={itemQuantity}
-              onChangeText={setItemQuantity}
-            />
-            <Picker
-              selectedValue={itemUnit}
-              style={styles.picker}
-              onValueChange={(v) => setItemUnit(v)}
-            >
-              {['g', 'kg', 'oz', 'lb', 'ml', 'l', 'fl_oz'].map(u => (
-                <Picker.Item key={u} label={u} value={u} />
-              ))}
-            </Picker>
-            <Button
-              mode="contained"
-              style={styles.addButton}
-              buttonColor="#0a7ea4"
-              onPress={() => {
-                 handleAddItem();
-                 setAddModalVisible(false);
-               }}
-             >
-               Save
-             </Button>
-             <Button mode="text" textColor="#0a7ea4" onPress={() => setAddModalVisible(false)}>
-               Cancel
-             </Button>
-           </View>
-         </KeyboardAvoidingView>
-       </Modal>
+       <Modal visible={addModalVisible} animationType="slide" presentationStyle="fullScreen">
+        <SafeAreaView style={styles.addModalContainer}>
+          <View style={styles.addHeader}>
+            <TouchableOpacity onPress={() => {
+              setAddModalVisible(false);
+              setItemName('');
+              setItemQuantity('');
+              setSuggestions([]);
+              setCategoryFilter('all');
+            }}>
+              <Ionicons name="close" size={24} color="#0a7ea4" />
+            </TouchableOpacity>
+            <Text style={styles.addHeaderTitle}>Add Item</Text>
+            <View style={styles.scanButtonGroup}>
+              <TouchableOpacity 
+                onPress={handleManualEntry}
+                style={styles.scanButton}
+              >
+                <Ionicons name="keypad-outline" size={24} color="#0a7ea4" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-       <Modal visible={showServingsPicker} transparent animationType="fade">
-         <View style={styles.modalOverlay}>
-           <View style={styles.addSheet}>
-             <Text style={styles.addTitle}>Servings</Text>
-             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-               <IconButton icon="minus" onPress={() => setServings(Math.max(1, servings - 1))} />
-               <Text>{servings}</Text>
-               <IconButton icon="plus" onPress={() => setServings(Math.min(8, servings + 1))} />
-             </View>
-             <Button onPress={() => setShowServingsPicker(false)}>Done</Button>
-           </View>
-         </View>
-       </Modal>
+          <ScrollView style={styles.addContent} keyboardShouldPersistTaps="handled">
+            {/* Popular Items Section */}
+            <View style={styles.quickAddSection}>
+              <Text style={styles.sectionTitle}>Popular Items</Text>
+              {isLoadingPopular ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#0a7ea4" />
+                  <Text style={styles.loadingText}>Loading popular items...</Text>
+                </View>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.quickAddRow}>
+                    {popularItems.map(item => (
+                      <TouchableOpacity 
+                        key={item}
+                        style={[
+                          styles.quickAddChip,
+                          itemName.toLowerCase() === item.toLowerCase() && styles.quickAddChipSelected
+                        ]}
+                        onPress={() => handleQuickAdd(item)}
+                      >
+                        <Text style={[
+                          styles.quickAddText,
+                          itemName.toLowerCase() === item.toLowerCase() && styles.quickAddTextSelected
+                        ]}>
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Search Section */}
+            <View style={styles.searchSection}>
+              <Text style={styles.sectionTitle}>Search Items</Text>
+              
+              <View style={styles.categoryFilterRow}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.categoryChips}>
+                    <Chip
+                      selected={categoryFilter === 'all'}
+                      onPress={() => setCategoryFilter('all')}
+                      style={styles.categoryChip}
+                    >
+                      All
+                    </Chip>
+                    <Chip
+                      selected={categoryFilter === FoodCategory.DAIRY}
+                      onPress={() => setCategoryFilter(FoodCategory.DAIRY)}
+                      style={styles.categoryChip}
+                    >
+                      Dairy
+                    </Chip>
+                    <Chip
+                      selected={categoryFilter === FoodCategory.MEAT}
+                      onPress={() => setCategoryFilter(FoodCategory.MEAT)}
+                      style={styles.categoryChip}
+                    >
+                      Meat
+                    </Chip>
+                    <Chip
+                      selected={categoryFilter === FoodCategory.VEGETABLES}
+                      onPress={() => setCategoryFilter(FoodCategory.VEGETABLES)}
+                      style={styles.categoryChip}
+                    >
+                      Vegetables
+                    </Chip>
+                    <Chip
+                      selected={categoryFilter === FoodCategory.FRUITS}
+                      onPress={() => setCategoryFilter(FoodCategory.FRUITS)}
+                      style={styles.categoryChip}
+                    >
+                      Fruits
+                    </Chip>
+                    <Chip
+                      selected={categoryFilter === FoodCategory.CARBS}
+                      onPress={() => setCategoryFilter(FoodCategory.CARBS)}
+                      style={styles.categoryChip}
+                    >
+                      Carbs
+                    </Chip>
+                  </View>
+                </ScrollView>
+              </View>
+
+              <Searchbar
+                placeholder="Search for an item..."
+                value={itemName}
+                onChangeText={setItemName}
+                style={styles.searchBar}
+                iconColor="#0a7ea4"
+              />
+
+              {/* Enhanced Suggestions */}
+              {suggestions.length > 0 && (
+                <View style={styles.modernSuggestionBox}>
+                  {suggestions.slice(0, 5).map((suggestion) => (
+                    <TouchableOpacity
+                      key={suggestion.fdc_id || suggestion.name}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSuggestionSelect(suggestion)}
+                    >
+                      <View style={styles.suggestionContent}>
+                        <Text style={styles.suggestionName}>{suggestion.name}</Text>
+                        <Text style={styles.suggestionCategory}>{suggestion.category}</Text>
+                      </View>
+                      <Ionicons name="add-circle-outline" size={20} color="#0a7ea4" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Add Button with quantity input */}
+            <View style={styles.addButtonSection}>
+              <View style={styles.quantityRow}>
+                <PaperTextInput
+                  mode="outlined"
+                  label="Quantity"
+                  value={itemQuantity}
+                  onChangeText={setItemQuantity}
+                  keyboardType="numeric"
+                  placeholder="1"
+                  style={styles.quantityInput}
+                />
+                <PaperTextInput
+                  mode="outlined"
+                  label="Unit"
+                  value={itemUnit}
+                  editable={false}
+                  style={styles.unitInput}
+                  right={
+                    <PaperTextInput.Icon
+                      icon="chevron-down"
+                      onPress={() => {
+                        // You could implement a unit picker modal here if needed
+                        // For now, keeping it simple with default 'g'
+                      }}
+                    />
+                  }
+                />
+              </View>
+              
+              <Button
+                mode="contained"
+                style={styles.modernAddButton}
+                buttonColor="#0a7ea4"
+                loading={isAddingItem}
+                disabled={!itemName.trim() || isAddingItem}
+                onPress={async () => {
+                  setIsAddingItem(true);
+                  try {
+                    // Ensure quantity is set to 1 if not already set
+                    if (!itemQuantity || itemQuantity.trim() === '') {
+                      setItemQuantity('1');
+                    }
+                    await handleAddItem();
+                    // Clear form and close modal on success
+                    setItemName('');
+                    setItemQuantity('');
+                    setSuggestions([]);
+                    setCategoryFilter('all');
+                    setAddModalVisible(false);
+                    
+                    // Show success message
+                    Alert.alert('Success', 'Item added to your pantry!');
+                  } catch (error) {
+                    console.error('Failed to add item:', error);
+                    Alert.alert('Error', 'Failed to add item. Please try again.');
+                  } finally {
+                    setIsAddingItem(false);
+                  }
+                }}
+              >
+                {isAddingItem ? 'Adding Item...' : 'Add to Pantry'}
+              </Button>
+              
+              <Text style={styles.helpText}>
+                Enter quantity or leave empty for default of 1.
+              </Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
      </View>
     </SafeAreaView>
@@ -470,22 +764,36 @@ const styles = StyleSheet.create({
   header: { backgroundColor: '#0d9488', padding: 16 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  content: { flex: 1, padding: 16 },
+  content: { flex: 1, padding: 8 }, // Reduced padding for better card spacing
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center' },
   logoutButton: { backgroundColor: '#0a7ea4', padding: 8, borderRadius: 8 },
   logoutButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   emptyText: { fontSize: 16, color: '#888', textAlign: 'center', marginVertical: 16 },
-  list: { paddingHorizontal: 16, paddingBottom: 120 },
-  listCenter: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 16, margin: 8, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width:0, height:2 }, shadowRadius:4, elevation:3 },
+  list: { paddingHorizontal: 4, paddingBottom: 120 }, // Further reduced horizontal padding
+  listCenter: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 4 },
+  card: { 
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    margin: 4, // Keep margin at 4 for better fit
+    overflow: 'hidden', 
+    shadowColor: '#000', 
+    shadowOpacity: 0.1, 
+    shadowOffset: { width:0, height:2 }, 
+    shadowRadius:4, 
+    elevation:3 
+  },
   cardImage: { width: '100%', height: 150, backgroundColor: '#eee' },
   cardPlaceholder: { width: '100%', height: 150, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
-  cardBody: { padding: 12 },
-  cardTitle: { fontSize: 20, fontWeight: '600', marginBottom: 4 },
+  cardBody: { padding: 8 }, // Reduced padding for more compact cards
+  cardTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 }, // Reduced font size for better fit
   cardQuantity: { fontSize: 14, color: '#666', marginBottom: 8 },
-  cardActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
-  columnWrapper: { justifyContent: 'space-between' },
+  cardActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 4 }, // Reduced padding
+  columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 8 }, // Better distribution with space-between
+  macroRow: { marginBottom: 4 },
+  macroText: { fontSize: 12, color: '#666', marginBottom: 2 },
+  macroBar: { height: 6, borderRadius: 3, backgroundColor: '#e0e0e0' },
+  macrosContainer: { marginTop: 8 },
 
   selectedCard: { borderColor: '#0a7ea4', borderWidth: 2 },
 
@@ -502,35 +810,196 @@ const styles = StyleSheet.create({
   /* Add item bottom sheet style */
   modalOverlay: { flex:1, justifyContent:'flex-end', backgroundColor:'rgba(0,0,0,0.4)' },
   detailOverlay: { flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'rgba(0,0,0,0.5)' },
-  addSheet: { backgroundColor:'#fff', padding:16, borderTopLeftRadius:12, borderTopRightRadius:12 },
-  addTitle: { fontSize:20, fontWeight:'bold', marginBottom:12 },
-  addInput: { borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, marginBottom:12 },
-  picker: { marginBottom: 12 },
-  suggestionBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, maxHeight: 120, marginBottom: 12 },
-  suggestionText: { padding: 8 },
-  addButton: { marginBottom:8 },
-  fab: {
-    position: 'absolute',
-    bottom: 32,
-    right: 32,
-    width: 56,
+  addModalContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  addHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e8ed',
+  },
+  addHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1d1d1f',
+  },
+  scanButtonGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  scanButton: {
+    padding: 8,
+  },
+  addContent: {
+    flex: 1,
+    padding: 16,
+  },
+  
+  // Quick Add Section
+  quickAddSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1d1d1f',
+    marginBottom: 12,
+  },
+  quickAddRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickAddChip: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+    marginRight: 8,
+  },
+  quickAddText: {
+    color: '#0a7ea4',
+    fontWeight: '500',
+  },
+  
+  // Search Section
+  searchSection: {
+    marginBottom: 24,
+  },
+  categoryFilterRow: {
+    marginBottom: 16,
+  },
+  categoryChips: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  categoryChip: {
+    marginRight: 8,
+  },
+  searchBar: {
+    backgroundColor: 'white',
+    elevation: 0,
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+  },
+  
+  // Enhanced Suggestions
+  modernSuggestionBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+  },
+  suggestionContent: {
+    flex: 1,
+  },
+  suggestionName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1d1d1f',
+  },
+  suggestionCategory: {
+    fontSize: 12,
+    color: '#8e8e93',
+    textTransform: 'capitalize',
+    marginTop: 2,
+  },
+  
+  // Quantity Section
+  quantitySection: {
+    marginBottom: 32,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16, // Reduced spacing before add button
+  },
+  quantityInput: {
+    flex: 2,
+    backgroundColor: 'white',
+  },
+  unitInput: { // Added missing style
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  unitPicker: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+  },
+  unitPickerStyle: {
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0a7ea4',
+  },
+  
+  // Add Button
+  addButtonSection: {
+    marginTop: 16, // Reduced from 'auto' to fixed spacing
+    paddingTop: 16,
+  },
+  modernAddButton: {
+    paddingVertical: 12, // Increased padding
+    borderRadius: 12,
+    marginBottom: 8, // Added margin before help text
+  },
+  
+  // Barcode Scanner Styles
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  scannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+  },
+  scannerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  camera: {
+    flex: 1,
+  },
+  scannerOverlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
-
-  recipeContainer: { marginTop: 16, padding: 16, backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
-  macrosContainer: { marginTop: 8 },
-  macroRow: { marginBottom: 6 },
-  macroText: { fontSize: 12, marginBottom: 2 },
-  macroBar: { height: 8, borderRadius: 4 },
+  scanFrame: {
+    width: 250,
+    height: 250,
+    borderWidth: 2,
+    borderColor: 'white',
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  scanInstructions: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 24,
+    textAlign: 'center',
+  },
   modalContent: {
     width: '90%',
     backgroundColor: '#fff',
@@ -556,5 +1025,59 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
     zIndex: 1,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'black',
+  },
+  permissionText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  manualEntryButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  manualEntryText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#8e8e93',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: '#0a7ea4',
+    fontSize: 14,
+  },
+  quickAddChipSelected: {
+    backgroundColor: '#0a7ea4',
+    borderColor: '#0a7ea4',
+  },
+  quickAddTextSelected: {
+    color: 'white',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+    backgroundColor: '#0a7ea4',
   },
 });

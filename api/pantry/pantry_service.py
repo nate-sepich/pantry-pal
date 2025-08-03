@@ -10,6 +10,7 @@ import boto3
 import requests
 from storage.utils import pantry_table
 from auth.auth_service import get_current_user, get_user_id_from_token
+from pantry.barcode_scanner import BarcodeService
 
 # Alias to get_current_user for test overrides
 get_user = get_current_user
@@ -164,3 +165,72 @@ def calculate_environmental_roi(items):
     logging.info("Calculating environmental ROI")
     # Implement environmental ROI calculation logic
     return 0
+
+@pantry_router.get("/lookup/{upc}")
+def lookup_item_by_upc(upc: str, user_id: str = Depends(get_user_id_from_token)) -> dict:
+    """
+    Look up product information by UPC/barcode.
+    """
+    logging.info(f"Looking up UPC: {upc} for user ID: {user_id}")
+    
+    try:
+        # Use the centralized barcode service (no CV dependencies)
+        product_info = BarcodeService.lookup_product_by_upc(upc)
+        
+        if product_info:
+            logging.info(f"Product found for UPC {upc}: {product_info['product_name']}")
+            return product_info
+        else:
+            logging.info(f"No product found for UPC: {upc}")
+            raise HTTPException(status_code=404, detail="Product not found")
+            
+    except HTTPException:
+        raise
+    except requests.RequestException as e:
+        logging.error(f"Error looking up UPC {upc}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to lookup product")
+    except Exception as e:
+        logging.error(f"Unexpected error looking up UPC {upc}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@pantry_router.get("/popular-items")
+def get_popular_items(user_id: str = Depends(get_user_id_from_token)) -> dict:
+    """
+    Get popular pantry items based on user's history and global trends.
+    """
+    logging.info(f"Fetching popular items for user ID: {user_id}")
+    
+    try:
+        # Get user's frequently added items
+        user_items = read_pantry_items(user_id)
+        
+        # Count frequency of items
+        item_counts = {}
+        for item in user_items:
+            if isinstance(item, dict):
+                name = item.get('product_name', '').lower().strip()
+            else:
+                name = getattr(item, 'product_name', '').lower().strip()
+            
+            if name:
+                item_counts[name] = item_counts.get(name, 0) + 1
+        
+        # Get top user items (limit to 3)
+        user_popular = sorted(item_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        user_popular_names = [item[0].title() for item in user_popular]
+        
+        # Default popular items
+        default_popular = ['Milk', 'Bread', 'Eggs', 'Chicken Breast', 'Rice', 'Bananas', 'Apples', 'Butter']
+        
+        # Combine user items with defaults, avoiding duplicates
+        combined_items = user_popular_names.copy()
+        for item in default_popular:
+            if item.lower() not in [x.lower() for x in combined_items] and len(combined_items) < 8:
+                combined_items.append(item)
+        
+        return {"items": combined_items[:8]}
+        
+    except Exception as e:
+        logging.error(f"Error getting popular items: {e}")
+        # Return defaults on error
+        return {"items": ['Milk', 'Bread', 'Eggs', 'Chicken Breast', 'Rice', 'Bananas']}
