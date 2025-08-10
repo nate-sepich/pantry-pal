@@ -19,8 +19,7 @@ import requests
 from storage.utils import pantry_table
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, 
-                    format='%(asctime)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
 # AI Router for OpenAI-powered recipe recommendations
 openai_router = APIRouter(prefix="/openai")
@@ -43,11 +42,13 @@ def call_openai(prompt: str) -> str:
     )
     return resp.choices[0].message.content
 
+
 # Bucket name for images
 S3_BUCKET_NAME = os.getenv("IMAGE_BUCKET_NAME", "ppal-images")
 
 # Initialize S3 client once
 s3 = boto3.client("s3")
+
 
 def _ensure_bucket(bucket_name: str):
     try:
@@ -56,20 +57,18 @@ def _ensure_bucket(bucket_name: str):
         logging.info(f"Creating S3 bucket {bucket_name}")
         s3.create_bucket(Bucket=bucket_name)
 
+
 def _upload_image_to_s3(user_id: str, item_id: str, img_data: bytes) -> str:
     _ensure_bucket(S3_BUCKET_NAME)
     key = f"{user_id}/{item_id}.png"
-    s3.put_object(
-        Bucket=S3_BUCKET_NAME,
-        Key=key,
-        Body=img_data,
-        ContentType="image/png"
-    )
+    s3.put_object(Bucket=S3_BUCKET_NAME, Key=key, Body=img_data, ContentType="image/png")
     return f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{key}"
+
 
 def check_api_key():
     if not api_key:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+
 
 def build_item_image_prompt(item_name: str) -> str:
     """Return a detailed prompt for generating a photo-realistic image of the item."""
@@ -78,6 +77,7 @@ def build_item_image_prompt(item_name: str) -> str:
         "background, soft natural lighting, crisp focus, no props except plates."
     )
 
+
 @openai_router.get("/meal_recommendation")
 def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
     """Get OpenAI-powered recipe recommendations based on the user's pantry items."""
@@ -85,15 +85,17 @@ def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
     logging.info(f"Generating OpenAI recipe recommendations for user ID: {user_id}")
     items = read_pantry_items(user_id)
     prompt = build_recipe_prompt(items)
-    
+
     try:
         logging.info(f"OpenAI meal generation starting for: {user_id}")
         response = openai_client.chat.completions.create(
             model=openai_model,
-            messages=[{"role": "system", "content": "You are a helpful culinary assistant."},
-                     {"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a helpful culinary assistant."},
+                {"role": "user", "content": prompt},
+            ],
             max_tokens=800,
-            temperature=0.7
+            temperature=0.7,
         )
         recipes = response.choices[0].message.content
         return recipes
@@ -101,28 +103,38 @@ def get_recipe_recommendations(user_id: str = Depends(get_user_id_from_token)):
         logging.error(f"Error generating recipes with OpenAI: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate recipes: {str(e)}")
 
+
 @openai_router.post("/meal_suggestions")
-def get_meal_suggestions(daily_macro_goals: InventoryItemMacros, user_id: str = Depends(get_user_id_from_token)):
+def get_meal_suggestions(
+    daily_macro_goals: InventoryItemMacros, user_id: str = Depends(get_user_id_from_token)
+):
     """Get OpenAI-powered meal suggestions based on the user's pantry items and daily macro goals."""
     check_api_key()
-    logging.info(f"Generating OpenAI meal suggestions for user ID: {user_id} with daily macro goals: {daily_macro_goals}")
+    logging.info(
+        f"Generating OpenAI meal suggestions for user ID: {user_id} with daily macro goals: {daily_macro_goals}"
+    )
     items = read_pantry_items(user_id)
     prompt = generate_meal_suggestion_prompt(items, daily_macro_goals)
-    
+
     try:
         logging.info(f"OpenAI meal suggestion generation starting for: {user_id}")
         response = openai_client.chat.completions.create(
             model=openai_model,
-            messages=[{"role": "system", "content": "You are a nutrition expert and chef."},
-                     {"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a nutrition expert and chef."},
+                {"role": "user", "content": prompt},
+            ],
             max_tokens=1000,
-            temperature=0.7
+            temperature=0.7,
         )
         meal_suggestions = response.choices[0].message.content
         return meal_suggestions
     except Exception as e:
         logging.error(f"Error generating meal suggestions with OpenAI: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate meal suggestions: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate meal suggestions: {str(e)}"
+        )
+
 
 @openai_router.post("/llm_chat")
 def llm_chat(request: LLMChatRequest):
@@ -133,15 +145,14 @@ def llm_chat(request: LLMChatRequest):
 
     try:
         response = openai_client.chat.completions.create(
-            model=openai_model,
-            messages=[m.dict() for m in request.messages],
-            max_tokens=500
+            model=openai_model, messages=[m.dict() for m in request.messages], max_tokens=500
         )
         return {"response": response.choices[0].message.content}
     except Exception as e:
         logging.error(f"Error communicating with OpenAI: {e}")
         raise HTTPException(status_code=500, detail=f"Error communicating with OpenAI: {str(e)}")
-    
+
+
 @openai_router.post("/generate_image")
 def generate_image(request: dict, user_id: str = Depends(get_user_id_from_token)):
     """Generate an image for a pantry item using OpenAI, store in S3, and persist the URL."""
@@ -158,11 +169,12 @@ def generate_image(request: dict, user_id: str = Depends(get_user_id_from_token)
         img_data = requests.get(response.data[0].url).content
         public_url = _upload_image_to_s3(user_id, item_id, img_data)
         # persist URL in DynamoDB
-        pk = f"USER#{user_id}"; sk = f"PANTRY#{item_id}"
+        pk = f"USER#{user_id}"
+        sk = f"PANTRY#{item_id}"
         pantry_table.update_item(
             Key={"PK": pk, "SK": sk},
             UpdateExpression="SET image_url = :url",
-            ExpressionAttributeValues={":url": public_url}
+            ExpressionAttributeValues={":url": public_url},
         )
         return {"url": public_url}
     except Exception as e:
@@ -196,6 +208,7 @@ def gen_recipe(req: RecipeRequest, user_id: str = Depends(get_user_id_from_token
         raise HTTPException(status_code=502, detail="Failed to parse LLM response")
     return {"recipe": recipe}
 
+
 def enrich_image_job(payload: dict):
     """Hydrate a single pantry item image: generate via OpenAI, upload to S3, and persist URL."""
     check_api_key()
@@ -214,9 +227,10 @@ def enrich_image_job(payload: dict):
     pantry_table.update_item(
         Key={"PK": pk, "SK": sk},
         UpdateExpression="SET image_url = :url",
-        ExpressionAttributeValues={":url": public_url}
+        ExpressionAttributeValues={":url": public_url},
     )
     logging.info(f"Enriched image for item {item_id}")
+
 
 def build_recipe_prompt(items, modifiers=None) -> str:
     """Build a structured recipe generation prompt."""
@@ -238,25 +252,24 @@ def build_recipe_prompt(items, modifiers=None) -> str:
             for note in modifiers.overrides:
                 prompt.append(f"- {note}")
 
-    prompt.append(
-        "\nGenerate JSON: title, ingredients (with qty), steps, total macros."
-    )
+    prompt.append("\nGenerate JSON: title, ingredients (with qty), steps, total macros.")
     return "\n".join(prompt)
+
 
 def generate_meal_suggestion_prompt(items, daily_macro_goals):
     """Generate a prompt for the OpenAI model to create meal suggestions based on pantry items and daily macro goals."""
     logging.info("Generating meal suggestion prompt for OpenAI model with macros")
     item_details = ""
     for item in items:
-        macros = item.get('macros', {})
+        macros = item.get("macros", {})
         macros_str = ", ".join(f"{key}: {value}" for key, value in macros.items() if value)
         item_detail = f"- {item['product_name']}: {macros_str}"
         item_details += item_detail + "\n"
-    
+
     # Add current date and time in US Central Time to the prompt
-    central = pytz.timezone('US/Central')
+    central = pytz.timezone("US/Central")
     current_time = datetime.now(central).strftime("%Y-%m-%d %H:%M:%S")
-    
+
     prompt = (
         f"Current Date and Time: {current_time}\n\n"
         "Using the following pantry items with their nutritional information, create meal suggestions that meet the specified daily macro goals.\n"

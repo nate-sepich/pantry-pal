@@ -22,9 +22,9 @@ from pantry.pantry_service import get_current_user
 load_dotenv()
 
 # Load your USDA API Key
-USDA_API_KEY = os.getenv('USDA_API_KEY')
+USDA_API_KEY = os.getenv("USDA_API_KEY")
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 CATEGORY_MAP = {
     "dairy": FoodCategory.DAIRY,
@@ -56,6 +56,7 @@ UNIT_CONVERSIONS = {
     "fl_oz": Decimal("29.5735"),
 }
 
+
 def map_food_category(raw: str) -> FoodCategory:
     lower = (raw or "").lower()
     for key, cat in CATEGORY_MAP.items():
@@ -63,11 +64,13 @@ def map_food_category(raw: str) -> FoodCategory:
             return cat
     return FoodCategory.OTHER
 
+
 def convert_to_grams(qty: Decimal, unit: str) -> Decimal:
     factor = UNIT_CONVERSIONS.get(unit.lower())
     if factor is None:
         raise HTTPException(status_code=400, detail="Unsupported unit")
     return qty * factor
+
 
 # Define an async function to search for food items using the USDA FoodData Central API
 async def search_food_item_async(item_name: str) -> Optional[int]:
@@ -96,46 +99,50 @@ async def search_food_items_async(query: str) -> List[dict]:
     logging.error(f"USDA search failed: {resp.status_code}")
     raise HTTPException(status_code=resp.status_code, detail="Error fetching suggestions")
 
+
 # Define an async function to fetch food details using the USDA FoodData Central API
-async def fetch_food_details_async(fdc_id: int, format: str = 'full', nutrients: Optional[List[int]] = None) -> Optional[InventoryItemMacros]:
+async def fetch_food_details_async(
+    fdc_id: int, format: str = "full", nutrients: Optional[List[int]] = None
+) -> Optional[InventoryItemMacros]:
     """
     Asynchronous fetch of detailed food nutrient information using the FDC ID.
     Supports optional format (abridged/full) and nutrient filtering.
     """
     detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
-    params = {
-        'api_key': USDA_API_KEY,
-        'format': format
-    }
+    params = {"api_key": USDA_API_KEY, "format": format}
     if nutrients:
-        params['nutrients'] = ','.join(map(str, nutrients))
-    
+        params["nutrients"] = ",".join(map(str, nutrients))
+
     async with httpx.AsyncClient() as client:
         response = await client.get(detail_url, params=params)
         if response.status_code == 200:
             food_data = response.json()
-            nutrients = {nutrient['nutrient']['name']: nutrient['amount'] for nutrient in food_data.get('foodNutrients', [])}
-            
+            nutrients = {
+                nutrient["nutrient"]["name"]: nutrient["amount"]
+                for nutrient in food_data.get("foodNutrients", [])
+            }
+
             return InventoryItemMacros(
-                protein=nutrients.get('Protein', 0),
-                carbohydrates=nutrients.get('Carbohydrate, by difference', 0),
-                fiber=nutrients.get('Fiber, total dietary', 0),
-                sugar=nutrients.get('Sugars, total including NLEA', 0),
-                fat=nutrients.get('Total lipid (fat)', 0),
-                saturated_fat=nutrients.get('Fatty acids, total saturated', 0),
-                polyunsaturated_fat=nutrients.get('Fatty acids, total polyunsaturated', 0),
-                monounsaturated_fat=nutrients.get('Fatty acids, total monounsaturated', 0),
-                trans_fat=nutrients.get('Fatty acids, total trans', 0),
-                cholesterol=nutrients.get('Cholesterol', 0),
-                sodium=nutrients.get('Sodium, Na', 0),
-                potassium=nutrients.get('Potassium, K', 0),
-                vitamin_a=nutrients.get('Vitamin A, RAE', 0),
-                vitamin_c=nutrients.get('Vitamin C, total ascorbic acid', 0),
-                calcium=nutrients.get('Calcium, Ca', 0),
-                iron=nutrients.get('Iron, Fe', 0),
-                calories=nutrients.get('Calories', 0)  # Add calories
+                protein=nutrients.get("Protein", 0),
+                carbohydrates=nutrients.get("Carbohydrate, by difference", 0),
+                fiber=nutrients.get("Fiber, total dietary", 0),
+                sugar=nutrients.get("Sugars, total including NLEA", 0),
+                fat=nutrients.get("Total lipid (fat)", 0),
+                saturated_fat=nutrients.get("Fatty acids, total saturated", 0),
+                polyunsaturated_fat=nutrients.get("Fatty acids, total polyunsaturated", 0),
+                monounsaturated_fat=nutrients.get("Fatty acids, total monounsaturated", 0),
+                trans_fat=nutrients.get("Fatty acids, total trans", 0),
+                cholesterol=nutrients.get("Cholesterol", 0),
+                sodium=nutrients.get("Sodium, Na", 0),
+                potassium=nutrients.get("Potassium, K", 0),
+                vitamin_a=nutrients.get("Vitamin A, RAE", 0),
+                vitamin_c=nutrients.get("Vitamin C, total ascorbic acid", 0),
+                calcium=nutrients.get("Calcium, Ca", 0),
+                iron=nutrients.get("Iron, Fe", 0),
+                calories=nutrients.get("Calories", 0),  # Add calories
             )
     return None
+
 
 # Define an async function to query the USDA FoodData Central API for macro information
 async def query_food_api_async(item_name: str) -> Optional[InventoryItemMacros]:
@@ -144,13 +151,15 @@ async def query_food_api_async(item_name: str) -> Optional[InventoryItemMacros]:
     First searches for the item, then fetches detailed nutrient information using the fdcId.
     """
     fdc_id = await search_food_item_async(item_name)
-    
+
     if fdc_id:
         return await fetch_food_details_async(fdc_id)
-    
+
     return None
 
+
 macro_router = APIRouter(prefix="/macros")
+
 
 # Define a function to search for food items using the USDA FoodData Central API
 def search_food_item(item_name: str) -> Optional[int]:
@@ -159,59 +168,60 @@ def search_food_item(item_name: str) -> Optional[int]:
     Returns the fdcId of the first result, or None if no result is found.
     """
     search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search"
-    params = {
-        'api_key': USDA_API_KEY,
-        'query': item_name
-    }
+    params = {"api_key": USDA_API_KEY, "query": item_name}
     response = requests.get(search_url, params=params)
-    
+
     if response.status_code == 200:
         search_data = response.json()
-        if search_data['foods']:
+        if search_data["foods"]:
             # Return the first food's FDC ID
-            return search_data['foods'][0]['fdcId']
+            return search_data["foods"][0]["fdcId"]
     return None
 
-def fetch_food_details(fdc_id: int, format: str = 'full', nutrients: Optional[List[int]] = None) -> Optional[InventoryItemMacros]:
+
+def fetch_food_details(
+    fdc_id: int, format: str = "full", nutrients: Optional[List[int]] = None
+) -> Optional[InventoryItemMacros]:
     """
     Fetch detailed food nutrient information using the FDC ID.
     Supports optional format (abridged/full) and nutrient filtering.
     """
     detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
-    params = {
-        'api_key': USDA_API_KEY,
-        'format': format
-    }
+    params = {"api_key": USDA_API_KEY, "format": format}
     if nutrients:
-        params['nutrients'] = ','.join(map(str, nutrients))
-    
+        params["nutrients"] = ",".join(map(str, nutrients))
+
     response = requests.get(detail_url, params=params)
     if response.status_code == 200:
         food_data = response.json()
-        nutrients = {nutrient['nutrient']['name']: nutrient['amount'] for nutrient in food_data.get('foodNutrients', [])}
-        
+        nutrients = {
+            nutrient["nutrient"]["name"]: nutrient["amount"]
+            for nutrient in food_data.get("foodNutrients", [])
+        }
+
         # Map USDA nutrient data to your InventoryItemMacros model
         return InventoryItemMacros(
-            protein=nutrients.get('Protein', 0),
-            carbohydrates=nutrients.get('Carbohydrate, by difference', 0),
-            fiber=nutrients.get('Fiber, total dietary', 0),
-            sugar=nutrients.get('Sugars, total including NLEA', 0),
-            fat=nutrients.get('Total lipid (fat)', 0),
-            saturated_fat=nutrients.get('Fatty acids, total saturated', 0),
-            polyunsaturated_fat=nutrients.get('Fatty acids, total polyunsaturated', 0),
-            monounsaturated_fat=nutrients.get('Fatty acids, total monounsaturated', 0),
-            trans_fat=nutrients.get('Fatty acids, total trans', 0),
-            cholesterol=nutrients.get('Cholesterol', 0),
-            sodium=nutrients.get('Sodium, Na', 0),
-            potassium=nutrients.get('Potassium, K', 0),
-            vitamin_a=nutrients.get('Vitamin A, RAE', 0),
-            vitamin_c=nutrients.get('Vitamin C, total ascorbic acid', 0),
-            calcium=nutrients.get('Calcium, Ca', 0),
-            iron=nutrients.get('Iron, Fe', 0),
-            calories=nutrients.get('Energy', 0)  # Add calories
+            protein=nutrients.get("Protein", 0),
+            carbohydrates=nutrients.get("Carbohydrate, by difference", 0),
+            fiber=nutrients.get("Fiber, total dietary", 0),
+            sugar=nutrients.get("Sugars, total including NLEA", 0),
+            fat=nutrients.get("Total lipid (fat)", 0),
+            saturated_fat=nutrients.get("Fatty acids, total saturated", 0),
+            polyunsaturated_fat=nutrients.get("Fatty acids, total polyunsaturated", 0),
+            monounsaturated_fat=nutrients.get("Fatty acids, total monounsaturated", 0),
+            trans_fat=nutrients.get("Fatty acids, total trans", 0),
+            cholesterol=nutrients.get("Cholesterol", 0),
+            sodium=nutrients.get("Sodium, Na", 0),
+            potassium=nutrients.get("Potassium, K", 0),
+            vitamin_a=nutrients.get("Vitamin A, RAE", 0),
+            vitamin_c=nutrients.get("Vitamin C, total ascorbic acid", 0),
+            calcium=nutrients.get("Calcium, Ca", 0),
+            iron=nutrients.get("Iron, Fe", 0),
+            calories=nutrients.get("Energy", 0),  # Add calories
         )
-    
+
     return None
+
 
 def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
     """
@@ -220,11 +230,12 @@ def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
     Portion size is in grams by default.
     """
     fdc_id = search_food_item(item_name)
-    
+
     if fdc_id:
         return fetch_food_details(fdc_id)
-    
+
     return None
+
 
 @macro_router.post("/item", response_model=InventoryItemMacros)
 async def get_item_macros(req: ItemMacroRequest):
@@ -253,7 +264,7 @@ async def get_item_macros(req: ItemMacroRequest):
         calcium=macro_data.calcium * factor,
         iron=macro_data.iron * factor,
     )
-    
+
 
 @macro_router.post("/recipe")
 async def get_recipe_macros(recipe: RecipeInput):
@@ -270,8 +281,10 @@ async def get_recipe_macros(recipe: RecipeInput):
     total_macros = InventoryItemMacros()
 
     # Create a list of tasks to query the API for each ingredient in parallel
-    tasks = [query_food_api_async(ingredient_input.item_name) for ingredient_input in recipe.ingredients]
-    
+    tasks = [
+        query_food_api_async(ingredient_input.item_name) for ingredient_input in recipe.ingredients
+    ]
+
     # Gather the results in parallel
     results = await asyncio.gather(*tasks)
 
@@ -286,8 +299,12 @@ async def get_recipe_macros(recipe: RecipeInput):
             total_macros.sugar += macro_data.sugar * (ingredient_quantity / 100)
             total_macros.fat += macro_data.fat * (ingredient_quantity / 100)
             total_macros.saturated_fat += macro_data.saturated_fat * (ingredient_quantity / 100)
-            total_macros.polyunsaturated_fat += macro_data.polyunsaturated_fat * (ingredient_quantity / 100)
-            total_macros.monounsaturated_fat += macro_data.monounsaturated_fat * (ingredient_quantity / 100)
+            total_macros.polyunsaturated_fat += macro_data.polyunsaturated_fat * (
+                ingredient_quantity / 100
+            )
+            total_macros.monounsaturated_fat += macro_data.monounsaturated_fat * (
+                ingredient_quantity / 100
+            )
             total_macros.trans_fat += macro_data.trans_fat * (ingredient_quantity / 100)
             total_macros.cholesterol += macro_data.cholesterol * (ingredient_quantity / 100)
             total_macros.sodium += macro_data.sodium * (ingredient_quantity / 100)
@@ -296,9 +313,13 @@ async def get_recipe_macros(recipe: RecipeInput):
             total_macros.vitamin_c += macro_data.vitamin_c * (ingredient_quantity / 100)
             total_macros.calcium += macro_data.calcium * (ingredient_quantity / 100)
             total_macros.iron += macro_data.iron * (ingredient_quantity / 100)
-            total_macros.calories += macro_data.calories * (ingredient_quantity / 100)  # Add calories
+            total_macros.calories += macro_data.calories * (
+                ingredient_quantity / 100
+            )  # Add calories
         else:
-            return {"error": f"Ingredient {recipe.ingredients[i].item_name} not found or data unavailable"}
+            return {
+                "error": f"Ingredient {recipe.ingredients[i].item_name} not found or data unavailable"
+            }
 
     # Scale macros by servings
     if recipe.servings > 1:
@@ -319,10 +340,11 @@ async def get_recipe_macros(recipe: RecipeInput):
             vitamin_c=total_macros.vitamin_c / recipe.servings,
             calcium=total_macros.calcium / recipe.servings,
             iron=total_macros.iron / recipe.servings,
-            calories=total_macros.calories / recipe.servings  # Add calories
+            calories=total_macros.calories / recipe.servings,  # Add calories
         )
 
     return total_macros
+
 
 @macro_router.get("/item/{item_id}", response_model=InventoryItemMacros)
 def get_item_macros(item_id: str, user_claims: dict = Depends(get_current_user)):
@@ -335,6 +357,7 @@ def get_item_macros(item_id: str, user_claims: dict = Depends(get_current_user))
         if item["id"] == item_id:
             return item.get("macros", InventoryItemMacros())
     raise HTTPException(status_code=404, detail="Item not found")
+
 
 @macro_router.get("/total", response_model=InventoryItemMacros)
 def get_total_macros(user_claims: dict = Depends(get_current_user)):
@@ -365,6 +388,7 @@ def get_total_macros(user_claims: dict = Depends(get_current_user)):
             total_macros.iron += item["macros"].get("iron", 0)
     return total_macros
 
+
 @macro_router.get("/autocomplete", response_model=List[FoodSuggestion])
 async def autocomplete(query: str, category: Optional[FoodCategory] = None):
     """Return up to five autocomplete suggestions."""
@@ -378,11 +402,14 @@ async def autocomplete(query: str, category: Optional[FoodCategory] = None):
         if category and cat != category:
             continue
         suggestions.append(
-            FoodSuggestion(name=food.get("description", ""), fdc_id=str(food.get("fdcId")), category=cat)
+            FoodSuggestion(
+                name=food.get("description", ""), fdc_id=str(food.get("fdcId")), category=cat
+            )
         )
         if len(suggestions) >= 5:
             break
     return suggestions
+
 
 @macro_router.get("/upc", response_model=UPCResponseModel)
 def lookup_upc(upc: str):
@@ -400,6 +427,7 @@ def lookup_upc(upc: str):
     if not fdc_id:
         raise HTTPException(status_code=404, detail="Item not found for UPC")
     return UPCResponseModel(fdc_id=str(fdc_id))
+
 
 def enrich_item(data: dict):
     """
@@ -420,6 +448,7 @@ def enrich_item(data: dict):
                 logging.info(f"Updated macros for item ID: {item_id}")
                 return
     logging.warning(f"Failed to enrich item: {item_name}. No macros found.")
+
 
 def enrich_recipe(data: dict):
     """
@@ -458,4 +487,3 @@ def enrich_recipe(data: dict):
             logging.info(f"Updated macros for recipe ID: {recipe_id}")
             return
     logging.warning(f"Failed to enrich recipe ID: {recipe_id}. Recipe not found.")
-

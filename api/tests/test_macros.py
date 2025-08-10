@@ -9,29 +9,37 @@ from models.models import InventoryItemMacros, FoodSuggestion, FoodCategory
 class DummyUser:
     id = "testuser"
 
+
 def override_get_user():
     return DummyUser()
+
 
 def override_get_user_id_from_token():
     return "testuser"
 
+
 app.dependency_overrides[get_user] = override_get_user
 app.dependency_overrides[get_user_id_from_token] = override_get_user_id_from_token
+
 
 def dummy_query(name):
     if name == "Rice":
         return InventoryItemMacros(protein=1)
     return None
 
+
 macro_service.query_food_api = dummy_query
 
 client = TestClient(app)
+
 
 @pytest.fixture
 def mock_query(monkeypatch):
     async def dummy(item_name: str):
         return InventoryItemMacros(calories=100, protein=10)
+
     monkeypatch.setattr(macro_service, "query_food_api_async", dummy)
+
 
 @pytest.fixture
 def mock_search(monkeypatch):
@@ -40,7 +48,9 @@ def mock_search(monkeypatch):
             {"description": "Milk", "fdcId": 1, "foodCategory": "Dairy"},
             {"description": "Almond Milk", "fdcId": 2, "foodCategory": "Dairy"},
         ]
+
     monkeypatch.setattr(macro_service, "search_food_items_async", dummy)
+
 
 @pytest.fixture
 def mock_upc(monkeypatch):

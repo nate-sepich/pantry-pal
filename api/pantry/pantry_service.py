@@ -4,8 +4,8 @@ import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from storage.utils import read_pantry_items, write_pantry_items, read_users, soft_delete_pantry_item
-from models.models import InventoryItem, InventoryItemMacros, User  
-from ai.openai_service import openai_client, check_api_key  
+from models.models import InventoryItem, InventoryItemMacros, User
+from ai.openai_service import openai_client, check_api_key
 import boto3
 import requests
 from storage.utils import pantry_table
@@ -20,12 +20,13 @@ get_user_id = get_user_id_from_token
 pantry_router = APIRouter(prefix="/pantry")
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # SQS client for hydration jobs
 MACRO_QUEUE_URL = os.getenv("MACRO_QUEUE_URL")
 IMAGE_QUEUE_URL = os.getenv("IMAGE_QUEUE_URL")
 sqs = boto3.client("sqs")
+
 
 @pantry_router.get("/items", response_model=List[InventoryItem])
 def get_items(user_id: str = Depends(get_user_id_from_token)) -> List[InventoryItem]:
@@ -35,6 +36,7 @@ def get_items(user_id: str = Depends(get_user_id_from_token)) -> List[InventoryI
     logging.info(f"Fetching pantry items for user ID: {user_id}")
     items = read_pantry_items(user_id)
     return items
+
 
 @pantry_router.get("/items/{item_id}", response_model=InventoryItem)
 def get_item(item_id: str, user_id: str = Depends(get_user_id_from_token)) -> InventoryItem:
@@ -70,6 +72,7 @@ def get_item(item_id: str, user_id: str = Depends(get_user_id_from_token)) -> In
     )
     return item
 
+
 @pantry_router.post("/items")
 def create_pantry_item(item: InventoryItem, user_id: str = Depends(get_user_id_from_token)):
     """
@@ -82,7 +85,16 @@ def create_pantry_item(item: InventoryItem, user_id: str = Depends(get_user_id_f
         if MACRO_QUEUE_URL:
             sqs.send_message(
                 QueueUrl=MACRO_QUEUE_URL,
-                MessageBody=json.dumps({"jobType":"ITEM","payload":{"user_id":user_id,"item_id":item.id,"item_name":item.product_name}})
+                MessageBody=json.dumps(
+                    {
+                        "jobType": "ITEM",
+                        "payload": {
+                            "user_id": user_id,
+                            "item_id": item.id,
+                            "item_name": item.product_name,
+                        },
+                    }
+                ),
             )
         else:
             logging.warning("MACRO_QUEUE_URL not set; skipping SQS send_message")
@@ -93,27 +105,34 @@ def create_pantry_item(item: InventoryItem, user_id: str = Depends(get_user_id_f
             if IMAGE_QUEUE_URL:
                 sqs.send_message(
                     QueueUrl=IMAGE_QUEUE_URL,
-                    MessageBody=json.dumps({
-                        "jobType": "IMAGE",
-                        "payload": {
-                            "user_id": user_id,
-                            "item_id": item.id,
-                            "item_name": item.product_name
+                    MessageBody=json.dumps(
+                        {
+                            "jobType": "IMAGE",
+                            "payload": {
+                                "user_id": user_id,
+                                "item_id": item.id,
+                                "item_name": item.product_name,
+                            },
                         }
-                    })
+                    ),
                 )
             else:
                 logging.warning("IMAGE_QUEUE_URL not set; skipping image generation job")
         except Exception as img_e:
-            logging.warning(f"Failed to send image generation SQS message for item {item.id}: {img_e}")
+            logging.warning(
+                f"Failed to send image generation SQS message for item {item.id}: {img_e}"
+            )
 
-        return {"message":"Pantry item created successfully","item":item_dict}
+        return {"message": "Pantry item created successfully", "item": item_dict}
     except Exception as e:
         logging.error(f"Error creating pantry item: user_id={user_id}, item={item}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create pantry item: {str(e)}")
 
+
 @pantry_router.put("/items/{item_id}", response_model=InventoryItem)
-def update_item(item_id: str, item: InventoryItem, user_id: str = Depends(get_user_id_from_token)) -> InventoryItem:
+def update_item(
+    item_id: str, item: InventoryItem, user_id: str = Depends(get_user_id_from_token)
+) -> InventoryItem:
     """
     Update an existing pantry item by its ID for the authenticated user.
     """
@@ -127,6 +146,7 @@ def update_item(item_id: str, item: InventoryItem, user_id: str = Depends(get_us
             return item
     raise HTTPException(status_code=404, detail="Item not found")
 
+
 @pantry_router.delete("/items/{item_id}")
 def delete_item(item_id: str, user_id: str = Depends(get_user_id_from_token)) -> dict:
     """
@@ -139,6 +159,7 @@ def delete_item(item_id: str, user_id: str = Depends(get_user_id_from_token)) ->
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete pantry item: {str(e)}")
 
+
 @pantry_router.get("/roi/metrics")
 def get_roi_metrics(user_id: str = Depends(get_user_id_from_token)) -> dict:
     """
@@ -149,22 +170,30 @@ def get_roi_metrics(user_id: str = Depends(get_user_id_from_token)) -> dict:
     health_roi = calculate_health_roi(items)
     financial_roi = calculate_financial_roi(items)
     environmental_roi = calculate_environmental_roi(items)
-    return {"health_roi": health_roi, "financial_roi": financial_roi, "environmental_roi": environmental_roi}
+    return {
+        "health_roi": health_roi,
+        "financial_roi": financial_roi,
+        "environmental_roi": environmental_roi,
+    }
+
 
 def calculate_health_roi(items):
     logging.info("Calculating health ROI")
     # Implement health ROI calculation logic
     return 0
 
+
 def calculate_financial_roi(items):
     logging.info("Calculating financial ROI")
     # Implement financial ROI calculation logic
     return 0
 
+
 def calculate_environmental_roi(items):
     logging.info("Calculating environmental ROI")
     # Implement environmental ROI calculation logic
     return 0
+
 
 @pantry_router.get("/lookup/{upc}")
 def lookup_item_by_upc(upc: str, user_id: str = Depends(get_user_id_from_token)) -> dict:
@@ -172,18 +201,18 @@ def lookup_item_by_upc(upc: str, user_id: str = Depends(get_user_id_from_token))
     Look up product information by UPC/barcode.
     """
     logging.info(f"Looking up UPC: {upc} for user ID: {user_id}")
-    
+
     try:
         # Use the centralized barcode service (no CV dependencies)
         product_info = BarcodeService.lookup_product_by_upc(upc)
-        
+
         if product_info:
             logging.info(f"Product found for UPC {upc}: {product_info['product_name']}")
             return product_info
         else:
             logging.info(f"No product found for UPC: {upc}")
             raise HTTPException(status_code=404, detail="Product not found")
-            
+
     except HTTPException:
         raise
     except requests.RequestException as e:
@@ -193,44 +222,54 @@ def lookup_item_by_upc(upc: str, user_id: str = Depends(get_user_id_from_token))
         logging.error(f"Unexpected error looking up UPC {upc}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 @pantry_router.get("/popular-items")
 def get_popular_items(user_id: str = Depends(get_user_id_from_token)) -> dict:
     """
     Get popular pantry items based on user's history and global trends.
     """
     logging.info(f"Fetching popular items for user ID: {user_id}")
-    
+
     try:
         # Get user's frequently added items
         user_items = read_pantry_items(user_id)
-        
+
         # Count frequency of items
         item_counts = {}
         for item in user_items:
             if isinstance(item, dict):
-                name = item.get('product_name', '').lower().strip()
+                name = item.get("product_name", "").lower().strip()
             else:
-                name = getattr(item, 'product_name', '').lower().strip()
-            
+                name = getattr(item, "product_name", "").lower().strip()
+
             if name:
                 item_counts[name] = item_counts.get(name, 0) + 1
-        
+
         # Get top user items (limit to 3)
         user_popular = sorted(item_counts.items(), key=lambda x: x[1], reverse=True)[:3]
         user_popular_names = [item[0].title() for item in user_popular]
-        
+
         # Default popular items
-        default_popular = ['Milk', 'Bread', 'Eggs', 'Chicken Breast', 'Rice', 'Bananas', 'Apples', 'Butter']
-        
+        default_popular = [
+            "Milk",
+            "Bread",
+            "Eggs",
+            "Chicken Breast",
+            "Rice",
+            "Bananas",
+            "Apples",
+            "Butter",
+        ]
+
         # Combine user items with defaults, avoiding duplicates
         combined_items = user_popular_names.copy()
         for item in default_popular:
             if item.lower() not in [x.lower() for x in combined_items] and len(combined_items) < 8:
                 combined_items.append(item)
-        
+
         return {"items": combined_items[:8]}
-        
+
     except Exception as e:
         logging.error(f"Error getting popular items: {e}")
         # Return defaults on error
-        return {"items": ['Milk', 'Bread', 'Eggs', 'Chicken Breast', 'Rice', 'Bananas']}
+        return {"items": ["Milk", "Bread", "Eggs", "Chicken Breast", "Rice", "Bananas"]}

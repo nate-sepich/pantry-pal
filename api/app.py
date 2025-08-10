@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = FastAPI()
 
@@ -41,14 +41,17 @@ app.include_router(chat_router, tags=["Chats"])
 # Add new routes
 app.add_api_route("/roi/metrics", get_roi_metrics, methods=["GET"], tags=["ROI"])
 
+
 @app.get("/")
 def root():
     return {"message": "Welcome to Pantry Pal API"}
+
 
 # SQS setup for background hydration jobs
 MACRO_QUEUE_URL = os.getenv("MACRO_QUEUE_URL")
 sqs = boto3.client("sqs")
 handler_api = Mangum(app)
+
 
 # Lambda handler
 def lambda_handler(event, context):
@@ -78,8 +81,9 @@ def lambda_handler(event, context):
     # Handle API Gateway events
     return handler_api(event, context)
 
+
 if __name__ == "__main__":
     logging.info("Starting API server")
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

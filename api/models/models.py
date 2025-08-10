@@ -4,8 +4,10 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 
+
 class UPCResponseModel(BaseModel):
     fdc_id: str
+
 
 class ChatMessage(BaseModel):
     role: str
@@ -15,6 +17,7 @@ class ChatMessage(BaseModel):
 class LLMChatRequest(BaseModel):
     messages: List[ChatMessage]
 
+
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: Optional[str] = None
@@ -22,6 +25,7 @@ class User(BaseModel):
     health_roi: Optional[Decimal] = 0
     financial_roi: Optional[Decimal] = 0
     environmental_roi: Optional[Decimal] = 0
+
 
 class InventoryItemMacros(BaseModel):
     calories: Optional[Decimal] = 0
@@ -41,12 +45,24 @@ class InventoryItemMacros(BaseModel):
     vitamin_c: Optional[Decimal] = 0
     calcium: Optional[Decimal] = 0
     iron: Optional[Decimal] = 0
-    
-    @validator('calories', 'protein', 'carbohydrates', 'fiber', 'sugar', 'fat', 'saturated_fat', 'cholesterol', 'sodium', pre=True)
+
+    @validator(
+        "calories",
+        "protein",
+        "carbohydrates",
+        "fiber",
+        "sugar",
+        "fat",
+        "saturated_fat",
+        "cholesterol",
+        "sodium",
+        pre=True,
+    )
     def non_negative(cls, v):
         if v < 0:
-            raise ValueError('Nutritional values must be non-negative')
+            raise ValueError("Nutritional values must be non-negative")
         return v
+
 
 class InventoryItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -74,18 +90,22 @@ class InventoryItem(BaseModel):
         data["macros"] = self.macros.dict() if self.macros else None
         return {k: v for k, v in data.items() if v is not None}
 
+
 class RecipeIngredientInput(BaseModel):
     item_name: str
     quantity: Decimal  # Quantity of the ingredient in grams
+
 
 class RecipeInput(BaseModel):
     name: str
     ingredients: List[RecipeIngredientInput]
     servings: int
-    
+
+
 class RecipeIngredient(BaseModel):
     item: InventoryItem
     quantity: Decimal  # The amount of this ingredient used in the recipe, in grams or other units
+
 
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -96,7 +116,6 @@ class Recipe(BaseModel):
     cook_time: Optional[str] = None
     tags: Optional[List[str]] = None
     active: bool = True  # Soft delete flag
-
 
 
 class RecipeModifiers(BaseModel):
@@ -163,8 +182,10 @@ class ItemMacroRequest(BaseModel):
             raise ValueError("quantity must be positive")
         return v
 
+
 class UPCLookupResponse(BaseModel):
     """Response model for UPC lookup."""
+
     product_name: str
     brand: Optional[str] = None
     category: Optional[str] = None

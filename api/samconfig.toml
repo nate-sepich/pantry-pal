@@ -4,6 +4,5 @@ stack_name = "ppal"
 resolve_s3 = true
 s3_prefix = "ppal"
 region = "us-east-1"
-profile = "dev-nsep"
 capabilities = "CAPABILITY_IAM"
 image_repositories = ["PantryPalFunction=347762031842.dkr.ecr.us-east-1.amazonaws.com/pantrypalc2fabcfd/pantrypalfunctioncfc380c5repo"]
