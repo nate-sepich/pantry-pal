@@ -43,7 +43,7 @@ jobs:
         npm audit --audit-level=moderate
 
     - name: Upload safety report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-reports
@@ -81,7 +81,7 @@ jobs:
         semgrep --config=auto .
 
     - name: Upload security scan reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: code-security-reports
@@ -163,7 +163,7 @@ jobs:
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     
     - name: Create security summary
       run: |
@@ -217,7 +217,7 @@ jobs:
         cat security-summary.md
     
     - name: Upload security summary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-summary
         path: security-summary.md
