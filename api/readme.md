@@ -66,8 +66,16 @@ This is a FastAPI application for managing pantry inventory items.
 
 ## API Deployment Steps
 
+### Manual Deployment
     ```sh
     cd api
     sam build -u
     sam deploy --config-env dev-nsep
     ```
+
+### CI/CD Pipeline
+The API uses GitHub Actions for automated deployment:
+- **develop branch** → staging environment
+- **main branch** → production environment
+
+Requires GitHub secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `SAM_ARTIFACTS_BUCKET`
