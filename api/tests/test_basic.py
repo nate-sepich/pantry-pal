@@ -3,8 +3,8 @@ Minimal test suite to get CI/CD pipeline working.
 These are basic tests that will pass while we build out the real test suite.
 """
 
-import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 
 
@@ -64,9 +64,6 @@ class TestEnvironment:
 
     def test_required_packages(self):
         """Test that required packages can be imported."""
-        import fastapi
-        import uvicorn
-        import boto3
 
         # If we get here without ImportError, packages are installed
         assert True

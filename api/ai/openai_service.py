@@ -1,22 +1,21 @@
 import json
-import os
 import logging
-from openai import OpenAI
-from fastapi import APIRouter, HTTPException, Depends, Request
-from starlette.responses import StreamingResponse
-from storage.utils import read_pantry_items
+import os
+from datetime import datetime
+
+import boto3
+import pytz  # Import pytz for timezone conversion
+import requests
+from auth.auth_service import get_user_id_from_token
+from fastapi import APIRouter, Depends, HTTPException
 from models.models import (
     InventoryItemMacros,
     LLMChatRequest,
     RecipeRequest,
     RecipeResponse,
 )
-from datetime import datetime
-import pytz  # Import pytz for timezone conversion
-from auth.auth_service import get_user_id_from_token
-import boto3
-import requests
-from storage.utils import pantry_table
+from openai import OpenAI
+from storage.utils import pantry_table, read_pantry_items
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")

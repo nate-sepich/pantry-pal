@@ -1,14 +1,16 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
-import boto3
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel
-import httpx
-from jose import jwt, JWTError
 from functools import lru_cache
+
+import boto3
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request
+from jose import JWTError, jwt
+from pydantic import BaseModel
 
 # Initialize AWS Cognito client
 region = os.getenv("AWS_REGION", "us-east-1")
@@ -136,7 +138,7 @@ async def login_user(model: LoginModel):
                 logging.error(f"Unsupported challenge: {challenge_name}")
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Authentication requires additional steps not supported in this app. Please contact support.",
+                    detail="Authentication requires additional steps not supported in this app. Please contact support.",
                 )
 
         # Normal authentication flow
@@ -175,13 +177,13 @@ async def login_user(model: LoginModel):
     except cognito_client.exceptions.NotAuthorizedException as e:
         logging.error(f"Invalid credentials for user {model.username}: {e}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    except cognito_client.exceptions.UserNotConfirmedException as e:
+    except cognito_client.exceptions.UserNotConfirmedException:
         logging.error(f"User not confirmed: {model.username}")
         raise HTTPException(
             status_code=400,
             detail="Your account is not confirmed. Please check your email for a confirmation code and use the registration flow to confirm your account.",
         )
-    except cognito_client.exceptions.UserNotFoundException as e:
+    except cognito_client.exceptions.UserNotFoundException:
         logging.error(f"User not found: {model.username}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     except cognito_client.exceptions.PasswordResetRequiredException as e:
@@ -189,7 +191,7 @@ async def login_user(model: LoginModel):
         raise HTTPException(
             status_code=400, detail="RESET_PASSWORD_REQUIRED"
         )  # Special code for frontend
-    except cognito_client.exceptions.TooManyRequestsException as e:
+    except cognito_client.exceptions.TooManyRequestsException:
         logging.error(f"Too many requests for user {model.username}")
         raise HTTPException(
             status_code=429, detail="Too many login attempts. Please wait and try again later."
@@ -260,7 +262,7 @@ COGNITO_JWKS_URL = (
 )
 
 
-@lru_cache()
+@lru_cache
 def get_cognito_jwks():
     resp = httpx.get(COGNITO_JWKS_URL)
     resp.raise_for_status()
@@ -295,8 +297,6 @@ async def get_current_user(request: Request):
 
 # Alias for backward compatibility/tests
 get_user = get_current_user
-
-from fastapi import Depends
 
 
 # Dependency to extract user_id directly

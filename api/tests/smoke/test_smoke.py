@@ -3,9 +3,10 @@ Minimal smoke tests for deployment validation.
 These test basic functionality against a deployed API.
 """
 
+import os
+
 import pytest
 import requests
-import os
 
 
 @pytest.fixture

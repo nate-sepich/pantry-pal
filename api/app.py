@@ -1,19 +1,21 @@
-import logging
 import json
+import logging
 import os
-import asyncio
+
 import boto3
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum  # AWS Lambda adapter for FastAPI
-from pantry.pantry_service import pantry_router, get_roi_metrics
-from cookbook.cookbook_service import cookbook_router
-from ai.openai_service import enrich_image_job  # helper for image hydration
-from macros.macro_service import macro_router, enrich_item, enrich_recipe
+from ai.openai_service import (
+    enrich_image_job,  # helper for image hydration
+    openai_router,
+)
 from auth.auth_service import auth_router
-from ai.openai_service import openai_router
 from chat.chat_service import chat_router
+from cookbook.cookbook_service import cookbook_router
 from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from macros.macro_service import enrich_item, enrich_recipe, macro_router
+from mangum import Mangum  # AWS Lambda adapter for FastAPI
+from pantry.pantry_service import get_roi_metrics, pantry_router
 
 load_dotenv()
 

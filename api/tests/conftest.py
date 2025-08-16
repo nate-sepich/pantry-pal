@@ -3,8 +3,9 @@ Minimal pytest configuration for basic testing.
 This avoids complex AWS mocking until we're ready to build real tests.
 """
 
-import pytest
 import os
+
+import pytest
 
 
 @pytest.fixture(scope="session")

@@ -1,21 +1,18 @@
 import logging
 import os
 import uuid
-from typing import List
+
 import boto3
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Body
-from recipe_scrapers import scrape_me
-
+from auth.auth_service import get_current_user, get_user_id_from_token
+from fastapi import APIRouter, Body, Depends, HTTPException
 from models.models import Recipe
-from storage.utils import read_recipe_items, write_recipe_items, pantry_table
+from recipe_scrapers import scrape_me
 from storage.utils import (
     read_recipe_items,
-    write_recipe_items,
-    pantry_table,
     soft_delete_recipe_item,
+    write_recipe_items,
 )
-from auth.auth_service import get_current_user, get_user_id_from_token
 
 get_user = get_current_user
 get_user_id = get_user_id_from_token
@@ -42,8 +39,8 @@ def _upload_recipe_image(img_data: bytes) -> str:
     return f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{key}"
 
 
-@cookbook_router.get("", response_model=List[Recipe])
-def list_recipes(user_id: str = Depends(get_user_id)) -> List[Recipe]:
+@cookbook_router.get("", response_model=list[Recipe])
+def list_recipes(user_id: str = Depends(get_user_id)) -> list[Recipe]:
     """List all recipes for the authenticated user."""
     return read_recipe_items(user_id)
 

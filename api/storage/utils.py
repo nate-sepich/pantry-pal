@@ -1,12 +1,13 @@
-import os
 import logging
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
+import os
 from datetime import datetime
 from decimal import Decimal
-from models.models import InventoryItem, InventoryItemMacros, Recipe, User
+
+import boto3
+from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
+from models.models import InventoryItem, InventoryItemMacros, Recipe, User
 
 load_dotenv()
 

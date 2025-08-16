@@ -1,9 +1,10 @@
+import os
+
 import cv2
-from pyzbar.pyzbar import decode, ZBarSymbol
 import numpy as np
 import requests
 from dotenv import load_dotenv
-import os
+from pyzbar.pyzbar import decode
 
 # Load environment variables from .env file
 load_dotenv()

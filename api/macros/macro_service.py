@@ -1,22 +1,22 @@
 import asyncio
+import logging
 import os
 from decimal import Decimal
-from fastapi import APIRouter, HTTPException, Depends, Request
+
 import httpx
 import requests
-from typing import Optional, List
 from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, HTTPException
 from models.models import (
+    FoodCategory,
+    FoodSuggestion,
     InventoryItemMacros,
+    ItemMacroRequest,
     RecipeInput,
     UPCResponseModel,
-    FoodSuggestion,
-    FoodCategory,
-    ItemMacroRequest,
 )
-import logging
-from storage.utils import read_pantry_items, write_pantry_items, read_recipe_items
 from pantry.pantry_service import get_current_user
+from storage.utils import read_pantry_items, read_recipe_items, write_pantry_items
 
 # load .env file
 load_dotenv()
@@ -73,7 +73,7 @@ def convert_to_grams(qty: Decimal, unit: str) -> Decimal:
 
 
 # Define an async function to search for food items using the USDA FoodData Central API
-async def search_food_item_async(item_name: str) -> Optional[int]:
+async def search_food_item_async(item_name: str) -> int | None:
     """Return the FDC id for the first matching item name."""
     search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
     params = {"api_key": USDA_API_KEY, "query": item_name}
@@ -87,7 +87,7 @@ async def search_food_item_async(item_name: str) -> Optional[int]:
     return None
 
 
-async def search_food_items_async(query: str) -> List[dict]:
+async def search_food_items_async(query: str) -> list[dict]:
     """Return a list of USDA search results for the given query."""
     search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
     params = {"api_key": USDA_API_KEY, "query": query}
@@ -102,8 +102,8 @@ async def search_food_items_async(query: str) -> List[dict]:
 
 # Define an async function to fetch food details using the USDA FoodData Central API
 async def fetch_food_details_async(
-    fdc_id: int, format: str = "full", nutrients: Optional[List[int]] = None
-) -> Optional[InventoryItemMacros]:
+    fdc_id: int, format: str = "full", nutrients: list[int] | None = None
+) -> InventoryItemMacros | None:
     """
     Asynchronous fetch of detailed food nutrient information using the FDC ID.
     Supports optional format (abridged/full) and nutrient filtering.
@@ -145,7 +145,7 @@ async def fetch_food_details_async(
 
 
 # Define an async function to query the USDA FoodData Central API for macro information
-async def query_food_api_async(item_name: str) -> Optional[InventoryItemMacros]:
+async def query_food_api_async(item_name: str) -> InventoryItemMacros | None:
     """
     Asynchronous query of the USDA FoodData Central API to retrieve macro information for a given food item.
     First searches for the item, then fetches detailed nutrient information using the fdcId.
@@ -162,12 +162,12 @@ macro_router = APIRouter(prefix="/macros")
 
 
 # Define a function to search for food items using the USDA FoodData Central API
-def search_food_item(item_name: str) -> Optional[int]:
+def search_food_item(item_name: str) -> int | None:
     """
     Search for food items using the USDA FoodData Central API.
     Returns the fdcId of the first result, or None if no result is found.
     """
-    search_url = f"https://api.nal.usda.gov/fdc/v1/foods/search"
+    search_url = "https://api.nal.usda.gov/fdc/v1/foods/search"
     params = {"api_key": USDA_API_KEY, "query": item_name}
     response = requests.get(search_url, params=params)
 
@@ -180,8 +180,8 @@ def search_food_item(item_name: str) -> Optional[int]:
 
 
 def fetch_food_details(
-    fdc_id: int, format: str = "full", nutrients: Optional[List[int]] = None
-) -> Optional[InventoryItemMacros]:
+    fdc_id: int, format: str = "full", nutrients: list[int] | None = None
+) -> InventoryItemMacros | None:
     """
     Fetch detailed food nutrient information using the FDC ID.
     Supports optional format (abridged/full) and nutrient filtering.
@@ -223,7 +223,7 @@ def fetch_food_details(
     return None
 
 
-def query_food_api(item_name: str) -> Optional[InventoryItemMacros]:
+def query_food_api(item_name: str) -> InventoryItemMacros | None:
     """
     Query the USDA FoodData Central API to retrieve macro information for a given food item.
     First searches for the item, then fetches detailed nutrient information using the fdcId.
@@ -389,14 +389,14 @@ def get_total_macros(user_claims: dict = Depends(get_current_user)):
     return total_macros
 
 
-@macro_router.get("/autocomplete", response_model=List[FoodSuggestion])
-async def autocomplete(query: str, category: Optional[FoodCategory] = None):
+@macro_router.get("/autocomplete", response_model=list[FoodSuggestion])
+async def autocomplete(query: str, category: FoodCategory | None = None):
     """Return up to five autocomplete suggestions."""
     if not query.strip():
         raise HTTPException(status_code=400, detail="query cannot be blank")
     logging.info(f"Providing autocomplete suggestions for query: {query}")
     foods = await search_food_items_async(query)
-    suggestions: List[FoodSuggestion] = []
+    suggestions: list[FoodSuggestion] = []
     for food in foods:
         cat = map_food_category(food.get("foodCategory", ""))
         if category and cat != category:

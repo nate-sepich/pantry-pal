@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
 from auth.auth_service import get_user_id_from_token
+from fastapi import APIRouter, Depends
 from models.models import ChatMeta
 from storage.utils import read_chat_meta, upsert_chat_meta
 

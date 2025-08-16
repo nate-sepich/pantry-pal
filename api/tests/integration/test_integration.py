@@ -3,9 +3,10 @@ Minimal integration tests.
 These test basic API integration without requiring complex setup.
 """
 
+import os
+
 import pytest
 import requests
-import os
 
 
 @pytest.fixture

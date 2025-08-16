@@ -1,8 +1,8 @@
 import uuid
-from enum import Enum
 from decimal import Decimal
+from enum import Enum
+
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional
 
 
 class UPCResponseModel(BaseModel):
@@ -15,36 +15,36 @@ class ChatMessage(BaseModel):
 
 
 class LLMChatRequest(BaseModel):
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
 
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    username: Optional[str] = None
-    email: Optional[str] = None
-    health_roi: Optional[Decimal] = 0
-    financial_roi: Optional[Decimal] = 0
-    environmental_roi: Optional[Decimal] = 0
+    username: str | None = None
+    email: str | None = None
+    health_roi: Decimal | None = 0
+    financial_roi: Decimal | None = 0
+    environmental_roi: Decimal | None = 0
 
 
 class InventoryItemMacros(BaseModel):
-    calories: Optional[Decimal] = 0
-    protein: Optional[Decimal] = 0
-    carbohydrates: Optional[Decimal] = 0
-    fiber: Optional[Decimal] = 0
-    sugar: Optional[Decimal] = 0
-    fat: Optional[Decimal] = 0
-    saturated_fat: Optional[Decimal] = 0
-    polyunsaturated_fat: Optional[Decimal] = 0
-    monounsaturated_fat: Optional[Decimal] = 0
-    trans_fat: Optional[Decimal] = 0
-    cholesterol: Optional[Decimal] = 0
-    sodium: Optional[Decimal] = 0
-    potassium: Optional[Decimal] = 0
-    vitamin_a: Optional[Decimal] = 0
-    vitamin_c: Optional[Decimal] = 0
-    calcium: Optional[Decimal] = 0
-    iron: Optional[Decimal] = 0
+    calories: Decimal | None = 0
+    protein: Decimal | None = 0
+    carbohydrates: Decimal | None = 0
+    fiber: Decimal | None = 0
+    sugar: Decimal | None = 0
+    fat: Decimal | None = 0
+    saturated_fat: Decimal | None = 0
+    polyunsaturated_fat: Decimal | None = 0
+    monounsaturated_fat: Decimal | None = 0
+    trans_fat: Decimal | None = 0
+    cholesterol: Decimal | None = 0
+    sodium: Decimal | None = 0
+    potassium: Decimal | None = 0
+    vitamin_a: Decimal | None = 0
+    vitamin_c: Decimal | None = 0
+    calcium: Decimal | None = 0
+    iron: Decimal | None = 0
 
     @validator(
         "calories",
@@ -66,15 +66,15 @@ class InventoryItemMacros(BaseModel):
 
 class InventoryItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: Optional[str]  # Link to the user who added the item
+    user_id: str | None  # Link to the user who added the item
     product_name: str
-    quantity: Optional[int] = 1
-    upc: Optional[str] = None
-    macros: Optional[InventoryItemMacros] = None
-    cost: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
-    expiration_date: Optional[str] = None
-    environmental_impact: Optional[Decimal] = Decimal("0")  # Use Decimal for DynamoDB compatibility
-    image_url: Optional[str] = None  # Public S3 URL for item image
+    quantity: int | None = 1
+    upc: str | None = None
+    macros: InventoryItemMacros | None = None
+    cost: Decimal | None = Decimal("0")  # Use Decimal for DynamoDB compatibility
+    expiration_date: str | None = None
+    environmental_impact: Decimal | None = Decimal("0")  # Use Decimal for DynamoDB compatibility
+    image_url: str | None = None  # Public S3 URL for item image
     active: bool = True  # Default to active
 
     @validator("cost", "environmental_impact", pre=True, always=True)
@@ -98,7 +98,7 @@ class RecipeIngredientInput(BaseModel):
 
 class RecipeInput(BaseModel):
     name: str
-    ingredients: List[RecipeIngredientInput]
+    ingredients: list[RecipeIngredientInput]
     servings: int
 
 
@@ -110,24 +110,24 @@ class RecipeIngredient(BaseModel):
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    ingredients: Optional[List[str]] = None
-    instructions: Optional[str] = None
-    image_url: Optional[str] = None
-    cook_time: Optional[str] = None
-    tags: Optional[List[str]] = None
+    ingredients: list[str] | None = None
+    instructions: str | None = None
+    image_url: str | None = None
+    cook_time: str | None = None
+    tags: list[str] | None = None
     active: bool = True  # Soft delete flag
 
 
 class RecipeModifiers(BaseModel):
-    servings: Optional[int] = None
-    flavorAdjustments: Optional[List[str]] = None
-    removeItems: Optional[List[str]] = None
-    overrides: Optional[List[str]] = None
+    servings: int | None = None
+    flavorAdjustments: list[str] | None = None
+    removeItems: list[str] | None = None
+    overrides: list[str] | None = None
 
 
 class RecipeRequest(BaseModel):
-    itemIds: List[str]
-    modifiers: Optional[RecipeModifiers] = None
+    itemIds: list[str]
+    modifiers: RecipeModifiers | None = None
 
 
 class RecipeResponse(BaseModel):
@@ -159,7 +159,7 @@ class FoodSuggestion(BaseModel):
     """Autocomplete suggestion with USDA id and category."""
 
     name: str
-    fdc_id: Optional[str] = None
+    fdc_id: str | None = None
     category: FoodCategory = FoodCategory.OTHER
 
 
@@ -187,9 +187,9 @@ class UPCLookupResponse(BaseModel):
     """Response model for UPC lookup."""
 
     product_name: str
-    brand: Optional[str] = None
-    category: Optional[str] = None
-    image_url: Optional[str] = None
-    fdc_id: Optional[str] = None
-    ingredients: Optional[str] = None
-    source: Optional[str] = None
+    brand: str | None = None
+    category: str | None = None
+    image_url: str | None = None
+    fdc_id: str | None = None
+    ingredients: str | None = None
+    source: str | None = None

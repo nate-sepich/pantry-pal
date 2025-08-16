@@ -4,26 +4,27 @@ Health check script for deployment validation and monitoring.
 Can be used in CI/CD pipelines and monitoring systems.
 """
 
-import requests
+import argparse
+import json
 import sys
 import time
-import argparse
-from typing import Dict, Any, List
-import json
+from typing import Any
+
+import requests
 
 
 class HealthChecker:
     def __init__(self, base_url: str, timeout: int = 30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.results: List[Dict[str, Any]] = []
+        self.results: list[dict[str, Any]] = []
 
     def check_endpoint(
         self,
         path: str,
         expected_status: int = 200,
         method: str = "GET",
-        headers: Dict[str, str] = None,
+        headers: dict[str, str] = None,
     ) -> bool:
         """Check a single endpoint"""
         url = f"{self.base_url}{path}"
@@ -125,7 +126,7 @@ class HealthChecker:
             print(f"✅ Performance check passed (avg response time: {avg_time:.2f}s)")
             return True
 
-    def generate_report(self) -> Dict[str, Any]:
+    def generate_report(self) -> dict[str, Any]:
         """Generate a comprehensive health report"""
         total_checks = len(self.results)
         passed_checks = len([r for r in self.results if r["success"]])
@@ -176,7 +177,7 @@ def main():
     # Generate report
     report = checker.generate_report()
 
-    print(f"\n📊 Health Check Summary:")
+    print("\n📊 Health Check Summary:")
     print(f"   Success Rate: {report['summary']['success_rate']:.1f}%")
     print(f"   Avg Response Time: {report['performance']['avg_response_time']:.2f}s")
     print(f"   Max Response Time: {report['performance']['max_response_time']:.2f}s")

@@ -1,16 +1,19 @@
-import os
 import json
 import logging
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request
-from storage.utils import read_pantry_items, write_pantry_items, read_users, soft_delete_pantry_item
-from models.models import InventoryItem, InventoryItemMacros, User
-from ai.openai_service import openai_client, check_api_key
+import os
+
 import boto3
 import requests
-from storage.utils import pantry_table
 from auth.auth_service import get_current_user, get_user_id_from_token
+from fastapi import APIRouter, Depends, HTTPException
+from models.models import InventoryItem, InventoryItemMacros
 from pantry.barcode_scanner import BarcodeService
+from storage.utils import (
+    pantry_table,
+    read_pantry_items,
+    soft_delete_pantry_item,
+    write_pantry_items,
+)
 
 # Alias to get_current_user for test overrides
 get_user = get_current_user
@@ -28,8 +31,8 @@ IMAGE_QUEUE_URL = os.getenv("IMAGE_QUEUE_URL")
 sqs = boto3.client("sqs")
 
 
-@pantry_router.get("/items", response_model=List[InventoryItem])
-def get_items(user_id: str = Depends(get_user_id_from_token)) -> List[InventoryItem]:
+@pantry_router.get("/items", response_model=list[InventoryItem])
+def get_items(user_id: str = Depends(get_user_id_from_token)) -> list[InventoryItem]:
     """
     Retrieve all pantry items for the authenticated user.
     """
