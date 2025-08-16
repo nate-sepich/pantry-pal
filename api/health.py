@@ -3,6 +3,7 @@
 Simple health check for deployed API.
 Can be run manually or in CI/CD pipeline.
 """
+# Trigger workflow
 
 import sys
 import time
