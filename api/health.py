@@ -4,9 +4,10 @@ Simple health check for deployed API.
 Can be run manually or in CI/CD pipeline.
 """
 
-import requests
 import sys
 import time
+
+import requests
 
 
 def check_api_health(base_url: str) -> bool:
@@ -32,7 +33,7 @@ def check_api_health(base_url: str) -> bool:
                     print("✅ API returning expected welcome message")
                 else:
                     print("⚠️ API responding but unexpected message format")
-            except:
+            except Exception:
                 print("⚠️ API responding but not returning JSON")
             return True
         else:
@@ -66,7 +67,7 @@ def check_openapi_docs(base_url: str) -> bool:
                 else:
                     print("⚠️ OpenAPI endpoint responding but invalid schema")
                     return False
-            except:
+            except Exception:
                 print("⚠️ OpenAPI endpoint not returning valid JSON")
                 return False
         else:
