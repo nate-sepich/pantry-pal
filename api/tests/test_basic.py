@@ -29,10 +29,10 @@ def test_root_endpoint_structure():
     """Test that root endpoint exists and returns expected structure."""
     client = TestClient(app)
     response = client.get("/")
-    
+
     # Should return 200 or some other non-500 status
     assert response.status_code < 500
-    
+
     # Should return JSON
     try:
         data = response.json()
@@ -46,26 +46,27 @@ def test_openapi_docs_exist():
     """Test that OpenAPI documentation is generated."""
     client = TestClient(app)
     response = client.get("/openapi.json")
-    
+
     # Should not crash
     assert response.status_code < 500
 
 
 class TestEnvironment:
     """Test environment and setup."""
-    
+
     def test_python_version(self):
         """Test Python version is compatible."""
         import sys
+
         version = sys.version_info
         assert version.major >= 3
         assert version.minor >= 8  # FastAPI requires Python 3.8+
-    
+
     def test_required_packages(self):
         """Test that required packages can be imported."""
         import fastapi
         import uvicorn
         import boto3
-        
+
         # If we get here without ImportError, packages are installed
         assert True

@@ -17,7 +17,7 @@ def api_base_url():
 
 class TestBasicSmoke:
     """Basic smoke tests that should always pass."""
-    
+
     def test_api_responds(self, api_base_url):
         """Test that API responds to requests."""
         try:
@@ -27,7 +27,7 @@ class TestBasicSmoke:
         except requests.exceptions.RequestException:
             # If we can't connect, skip the test rather than fail
             pytest.skip("Cannot connect to API - may not be deployed yet")
-    
+
     def test_api_not_returning_500s(self, api_base_url):
         """Test that API is not returning server errors."""
         try:

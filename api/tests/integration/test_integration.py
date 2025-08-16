@@ -19,7 +19,7 @@ def api_base_url():
 
 class TestBasicIntegration:
     """Basic integration tests."""
-    
+
     def test_api_health(self, api_base_url):
         """Test basic API health check."""
         try:
@@ -28,7 +28,7 @@ class TestBasicIntegration:
             assert response.status_code in [200, 401, 403, 404, 422]
         except requests.exceptions.RequestException:
             pytest.skip("API not accessible for integration tests")
-    
+
     def test_openapi_accessible(self, api_base_url):
         """Test that OpenAPI docs are accessible."""
         try:
