@@ -25,7 +25,7 @@ def decode_barcodes(image):
         # Draw bounding box around the barcode
         points = barcode.polygon
         if len(points) > 4:  # Adjust for irregular quadrilaterals
-            hull = cv2.convexHull(np.array([point for point in points], dtype=np.float32))
+            hull = cv2.convexHull(np.array(list(points), dtype=np.float32))
             points = hull.astype(int).tolist()
 
         # Only proceed if points are valid

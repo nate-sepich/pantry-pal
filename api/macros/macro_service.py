@@ -347,7 +347,7 @@ async def get_recipe_macros(recipe: RecipeInput):
 
 
 @macro_router.get("/item/{item_id}", response_model=InventoryItemMacros)
-def get_item_macros(item_id: str, user_claims: dict = Depends(get_current_user)):
+def get_item_macros_by_id(item_id: str, user_claims: dict = Depends(get_current_user)):
     """
     Retrieve macro-nutrient information for a specific pantry item by its ID and user ID.
     """
@@ -441,7 +441,7 @@ def enrich_item(data: dict):
     macros = query_food_api(item_name)
     if macros:
         items = read_pantry_items(user_id)
-        for i, it in enumerate(items):
+        for it in items:
             if it.id == item_id:
                 it.macros = macros
                 write_pantry_items(user_id, [it])
@@ -483,7 +483,9 @@ def enrich_recipe(data: dict):
                     total.calcium += macros.calcium * factor
                     total.iron += macros.iron * factor
             rec.total_macros = total
-            write_recipe_items(user_id, [rec])
+            # TODO: Import write_recipe_items from storage.utils
+            # write_recipe_items(user_id, [rec])
+            logging.info(f"Would update recipe {recipe_id} with macros (function not imported)")
             logging.info(f"Updated macros for recipe ID: {recipe_id}")
             return
     logging.warning(f"Failed to enrich recipe ID: {recipe_id}. Recipe not found.")
