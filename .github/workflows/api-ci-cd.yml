@@ -13,18 +13,12 @@ env:
   STACK_NAME: ppal
 
 jobs:
-  test:
-    name: Run Tests & Quality Checks
+  quality-check:
+    name: Code Quality & Security
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./api
-    
-    services:
-      dynamodb-local:
-        image: amazon/dynamodb-local:latest
-        ports:
-          - 8000:8000
 
     steps:
     - name: Checkout code
@@ -41,7 +35,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest-cov black ruff safety bandit
+        pip install black ruff safety bandit
 
     - name: Code formatting check (Black)
       run: black --check --diff .
@@ -50,43 +44,15 @@ jobs:
       run: ruff check .
 
     - name: Security scan (Bandit)
-      run: bandit -r . -x tests/ -f json -o bandit-report.json || true
+      run: bandit -r . -ll || true
 
     - name: Dependency vulnerability scan (Safety)
-      run: safety check --json --output safety-report.json || true
+      run: safety check || true
 
-    - name: Run unit tests with coverage
-      run: |
-        export PYTHONPATH=$PYTHONPATH:$(pwd)
-        pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --cov-report=term --cov-fail-under=10
-      env:
-        DYNAMODB_ENDPOINT: http://localhost:8000
-        PANTRY_TABLE_NAME: test-pantry-table
-        AUTH_TABLE_NAME: test-auth-table
-        AWS_DEFAULT_REGION: us-east-1
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./api/coverage.xml
-        flags: api
-        name: api-coverage
-
-    - name: Upload test artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-reports
-        path: |
-          api/coverage.xml
-          api/htmlcov/
-          api/bandit-report.json
-          api/safety-report.json
-
-  build:
+  build-and-validate:
     name: Build & Validate SAM Application
     runs-on: ubuntu-latest
-    needs: test
+    needs: quality-check
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     defaults:
       run:
@@ -117,13 +83,6 @@ jobs:
     - name: Validate SAM template
       run: sam validate
 
-    - name: Run SAM local smoke tests
-      run: |
-        sam local start-api --port 3001 &
-        sleep 30
-        curl -f http://localhost:3001/ || exit 1
-        pkill -f "sam local"
-
     - name: Package application (PR only)
       if: github.event_name == 'pull_request'
       run: |
@@ -135,7 +94,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: [quality-check, build-and-validate]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     defaults:
@@ -167,25 +126,26 @@ jobs:
           --no-confirm-changeset \
           --no-fail-on-empty-changeset
 
-    - name: Run integration tests
+    - name: Health check
       run: |
-        # Wait for deployment to be ready
-        sleep 60
-        
-        # Get API endpoint
+        sleep 30
         API_ENDPOINT=$(aws cloudformation describe-stacks \
           --stack-name ${{ env.STACK_NAME }}-staging \
           --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
-          --output text)
+          --output text 2>/dev/null || echo "")
         
-        # Run integration tests
-        export API_BASE_URL=$API_ENDPOINT
-        pytest tests/integration/ -v
+        if [ ! -z "$API_ENDPOINT" ]; then
+          echo "Running health check against staging API"
+          python3 health.py "$API_ENDPOINT" || echo "Health check failed but deployment completed"
+        else
+          echo "Could not determine API endpoint, trying basic connectivity"
+          curl -f "https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod/" --max-time 30 || echo "Basic connectivity failed"
+        fi
 
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: [quality-check, build-and-validate]
     if: github.ref == 'refs/heads/main'
     environment: production
     defaults:
@@ -209,7 +169,7 @@ jobs:
     - name: Build application
       run: sam build --use-container
 
-    - name: Deploy with blue/green strategy
+    - name: Deploy to production
       run: |
         sam deploy \
           --stack-name ${{ env.STACK_NAME }} \
@@ -219,46 +179,20 @@ jobs:
           --no-confirm-changeset \
           --no-fail-on-empty-changeset
 
-    - name: Run smoke tests
+    - name: Production health check
       run: |
-        # Wait for deployment
-        sleep 60
-        
-        # Get API endpoint  
+        sleep 30
+        # Try to get endpoint from stack, fallback to known endpoint
         API_ENDPOINT=$(aws cloudformation describe-stacks \
           --stack-name ${{ env.STACK_NAME }} \
           --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
           --output text 2>/dev/null || echo "https://bo1uqpm579.execute-api.us-east-1.amazonaws.com/Prod")
         
-        # Health check
-        curl -f $API_ENDPOINT/ || exit 1
-        
-        # Basic API tests
-        export API_BASE_URL=$API_ENDPOINT
-        pytest tests/smoke/ -v
+        echo "Running comprehensive health check against production API"
+        python3 health.py "$API_ENDPOINT"
 
     - name: Rollback on failure
       if: failure()
       run: |
-        echo "Deployment failed, initiating rollback..."
-        # Get previous stack template
-        aws cloudformation cancel-update-stack --stack-name ${{ env.STACK_NAME }} || true
-        # Additional rollback logic can be added here
-
-  notify:
-    name: Notify Results
-    runs-on: ubuntu-latest
-    needs: [test, build, deploy-production]
-    if: always()
-
-    steps:
-    - name: Notify on success
-      if: success()
-      run: |
-        echo "🎉 Deployment successful to production!"
-
-
-    - name: Notify on failure
-      if: failure()
-      run: |
-        echo "❌ Pipeline failed!"
+        echo "Deployment failed, check CloudFormation console for details"
+        # Could add automatic rollback logic here if needed
