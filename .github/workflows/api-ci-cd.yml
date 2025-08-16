@@ -75,7 +75,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Build SAM application
       run: sam build --use-container
@@ -91,12 +91,12 @@ jobs:
           --s3-prefix ${{ github.head_ref }} \
           --output-template-file packaged-template.yaml
 
-  deploy-staging:
-    name: Deploy to Staging
+  deploy-develop:
+    name: Deploy Develop to Existing Environment
     runs-on: ubuntu-latest
     needs: [quality-check, build-and-validate]
     if: github.ref == 'refs/heads/develop'
-    environment: staging
+    environment: development
     defaults:
       run:
         working-directory: ./api
@@ -115,27 +115,21 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Build and deploy to staging
+    - name: Build and deploy using existing samconfig.toml
       run: |
         sam build --use-container
-        sam deploy \
-          --stack-name ${{ env.STACK_NAME }}-staging \
-          --parameter-overrides Environment=staging \
-          --resolve-s3 \
-          --capabilities CAPABILITY_IAM \
-          --no-confirm-changeset \
-          --no-fail-on-empty-changeset
+        sam deploy --config-env dev-nsep
 
     - name: Health check
       run: |
         sleep 30
         API_ENDPOINT=$(aws cloudformation describe-stacks \
-          --stack-name ${{ env.STACK_NAME }}-staging \
+          --stack-name ${{ env.STACK_NAME }} \
           --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
           --output text 2>/dev/null || echo "")
         
         if [ ! -z "$API_ENDPOINT" ]; then
-          echo "Running health check against staging API"
+          echo "Running health check against existing environment"
           python3 health.py "$API_ENDPOINT" || echo "Health check failed but deployment completed"
         else
           echo "Could not determine API endpoint, trying basic connectivity"
