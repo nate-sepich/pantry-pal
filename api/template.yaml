@@ -18,18 +18,22 @@ Parameters:
     Type: String
     Description: Name of the CV Scanner Lambda function
     Default: barcode-cv-scanner
+  Environment:
+    Type: String
+    Description: Environment name (staging, production)
+    Default: production
 
 Resources:
 
   PantryMacroDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: PantryMacroDLQ
+      QueueName: !Sub "PantryMacroDLQ-${Environment}"
 
   PantryMacroQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: PantryMacroQueue
+      QueueName: !Sub "PantryMacroQueue-${Environment}"
       VisibilityTimeout: 60
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -41,13 +45,13 @@ Resources:
   ImageGenerationDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: ImageGenerationDLQ
+      QueueName: !Sub "ImageGenerationDLQ-${Environment}"
 
   # SQS queue for image generation jobs
   ImageGenerationQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: ImageGenerationQueue
+      QueueName: !Sub "ImageGenerationQueue-${Environment}"
       VisibilityTimeout: 60
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -69,6 +73,10 @@ Resources:
           IMAGE_BUCKET_NAME:
             Ref: ImageBucket
           BARCODE_CV_LAMBDA_NAME: !Ref CVScannerFunctionName
+          PANTRY_TABLE_NAME:
+            Ref: PantryPalTable
+          AUTH_TABLE_NAME:
+            Ref: AuthTable
       Policies:
         - DynamoDBCrudPolicy:
             TableName:
@@ -119,7 +127,7 @@ Resources:
   PantryPalTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: PantryPal
+      TableName: !Sub "PantryPal-${Environment}"
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S
@@ -135,7 +143,7 @@ Resources:
   AuthTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: AuthTable
+      TableName: !Sub "AuthTable-${Environment}"
       AttributeDefinitions:
         - AttributeName: username
           AttributeType: S
@@ -182,7 +190,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName:
-        Fn::Sub: "${AWS::StackName}-images"
+        Fn::Sub: "${AWS::StackName}-images-${Environment}"
 
   # Public read policy for the bucket
   ImageBucketPolicy:
@@ -200,6 +208,9 @@ Resources:
               Fn::Sub: '${ImageBucket.Arn}/*'
 
 Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${PantryPalApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
   PantryMacroQueueUrl:
     Value:
       Ref: PantryMacroQueue
